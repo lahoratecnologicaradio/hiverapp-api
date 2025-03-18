@@ -1,9 +1,13 @@
-const express = require('express');
+import express from 'express';
+import authMiddleware from '../middlewares/authMiddleware.js';
+import  {getTutorDetails}  from '../controllers/tutorController.js';
+
 const router = express.Router();
-const authMiddleware = require('../middlewares/authMiddleware');
-const { getTutorDetails } = require('../controllers/tutorController');
 
 // Ruta protegida para obtener detalles del tutor
 router.get('/details', authMiddleware, getTutorDetails);
 
-module.exports = router;
+// Ruta para obtener detalles del tutor
+router.get('/:tutorId', getTutorDetails);
+
+export default router;
