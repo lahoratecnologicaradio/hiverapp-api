@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import {PORT, JWT_SECRET} from './config.js'
 import tutorRoutes from './routes/tutorRoutes.js';
 import {pool} from '../db.js'; // Importa el pool de conexiones
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 
@@ -73,7 +73,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ message: 'Contraseña incorrecta.' });
     }
 
-    // Generar token JWT
+    // Generar token JWT 
     const token = jwt.sign({ id: user.id }, JWT_SECRET);
 
     // Enviar respuesta con el token
