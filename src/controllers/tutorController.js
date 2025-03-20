@@ -1,12 +1,12 @@
 import mysql from 'mysql2';
 import {pool} from '../../db.js'; // Asegúrate de que db.js exporte la conexión a MySQL
 
-export const getTutorDetails = async (req, res) => {
+const getTutorDetails = async (req, res) => {
   const tutorId = req.params.tutorId; // Suponiendo que el ID del tutor viene en los parámetros de la URL
 
   try {
     // Obtener información del tutor
-    const [tutor] = await pool.promise().query(
+    const [tutor] = await pool.query(
       'SELECT name, position FROM tutors WHERE id = ?',
       [tutorId]
     );
@@ -16,19 +16,19 @@ export const getTutorDetails = async (req, res) => {
     }
 
     // Obtener cursos del tutor
-    const [courses] = await pool.promise().query(
+    const [courses] = await pool.query(
       'SELECT id, name FROM courses WHERE tutor_id = ?',
       [tutorId]
     );
 
     // Obtener estudiantes del tutor
-    const [students] = await pool.promise().query(
+    const [students] = await pool.query(
       'SELECT id, name FROM students WHERE tutor_id = ?',
       [tutorId]
     );
 
     // Obtener reseñas del tutor
-    const [reviews] = await pool.promise().query(
+    const [reviews] = await pool.query(
       'SELECT id, comment FROM reviews WHERE tutor_id = ?',
       [tutorId]
     );
@@ -48,4 +48,17 @@ export const getTutorDetails = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
+
+// Controlador para obtener todos los usuarios
+const getAllUsers = async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT * FROM users');
+    res.json(users); // Devuelve todos los usuarios en formato JSON
+  } catch (error) {
+    console.error('Error obteniendo usuarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor.' });
+  }
+};
+
+export { getTutorDetails, getAllUsers }; // Exporta ambos controladores
 
