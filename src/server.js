@@ -54,6 +54,7 @@ app.post('/api/login', async (req, res) => {
   try {
 
     encryptPasswords();
+    encryptPasswords();
     
     // Buscar usuario en la base de datos usando el pool
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
