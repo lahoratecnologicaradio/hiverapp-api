@@ -2,7 +2,12 @@ import mysql from 'mysql2';
 import {pool} from '../../db.js'; // Asegúrate de que db.js exporte la conexión a MySQL
 
 const getTutorDetails = async (req, res) => {
-  const tutorId = req.params.tutorId; // Suponiendo que el ID del tutor viene en los parámetros de la URL
+  // Suponiendo que el tutorId se recibe en el cuerpo de la solicitud (POST)
+  const { tutorId } = req.body;
+
+  if (!tutorId) {
+    return res.status(400).json({ message: 'El ID del tutor es necesario.' });
+  }
 
   try {
     // Obtener información del tutor
@@ -48,6 +53,7 @@ const getTutorDetails = async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
+
 
 // Controlador para obtener todos los usuarios
 const getAllUsers = async (req, res) => {

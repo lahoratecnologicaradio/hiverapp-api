@@ -9,9 +9,9 @@ const router = express.Router();
 router.get('/', authMiddleware, getAllUsers);
 
 // Ruta protegida para obtener detalles del tutor
-router.get('/details', authMiddleware, getTutorDetails);
-7
+router.get('/users', authMiddleware, getAllUsers);
+
 // Ruta para obtener detalles del tutor
-router.get('/:tutorId', getTutorDetails);
+router.post('/details/:tutorId', getTutorDetails);
 
 export default router;
