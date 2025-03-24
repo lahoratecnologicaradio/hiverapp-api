@@ -53,8 +53,8 @@ app.post('/api/login', async (req, res) => {
 
   try {
 
-    encryptPasswords();
-    encryptPasswords();
+
+    //encryptPasswords();
     
     // Buscar usuario en la base de datos usando el pool
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -69,6 +69,8 @@ app.post('/api/login', async (req, res) => {
 
     // Verificar la contraseña
     const isMatch = await bcrypt.compare(password, user.password);
+
+    return res.status(400).json({ message: password,user});
 
     if (!isMatch) {
       return res.status(400).json({ message: 'Contraseña incorrecta.' });
