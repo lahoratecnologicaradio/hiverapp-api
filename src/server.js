@@ -85,6 +85,29 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Ruta para eliminar un usuario por ID
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params; // Obtener el ID del usuario de los parámetros de la URL
+
+  try {
+    // Verificar si el usuario existe
+    const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+
+    if (user.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado.' });
+    }
+
+    // Eliminar el usuario de la base de datos
+    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+
+    res.json({ message: 'Usuario eliminado exitosamente.' });
+  } catch (error) {
+    console.error('Error al eliminar el usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor.' });
+  }
+});
+
+
 
 async function encryptPasswords() {
   try {
