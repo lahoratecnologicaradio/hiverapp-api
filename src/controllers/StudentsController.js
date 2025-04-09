@@ -10,12 +10,9 @@ const StudentsController = {
       // Consulta mejorada que incluye información del tutor
       const [students] = await pool.query(`
         SELECT 
-          s.*, 
-          t.name AS tutor_name,
-          t.email AS tutor_email
-        FROM students s
-        LEFT JOIN tutors t ON s.tutor_id = t.id
-        ORDER BY s.name ASC
+        *
+        FROM students 
+        ORDER BY name ASC
       `);
       
       res.status(200).json({
