@@ -1,8 +1,10 @@
 import mysql from 'mysql2';
-import {pool} from '../../db.js'; // Asegúrate de que db.js exporte la conexión a MySQL
+import {pool} from '../../db.js'; 
+import Tutor from '../models/Tutor.js';
+
+
 
 const getTutorDetails = async (req, res) => {
-  // Suponiendo que el tutorId se recibe en el cuerpo de la solicitud (POST)
   const { tutorId } = req.body;
 
   if (!tutorId) {
@@ -55,7 +57,7 @@ const getTutorDetails = async (req, res) => {
 };
 
 
-// Controlador para obtener todos los usuarios
+
 const getAllUsers = async (req, res) => {
   try {
     const [users] = await pool.query('SELECT * FROM users');
@@ -66,5 +68,34 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-export { getTutorDetails, getAllUsers }; // Exporta ambos controladores
+
+
+const getAllTutors = async (req, res) => {
+    try {
+        const tutors = await Tutor.find(); // Obtiene todos los tutores de la BD
+        res.status(200).json({ success: true, data: tutors });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener los tutores', error });
+    }
+};
+
+
+const getTutorById = async (req, res) => {
+    try {
+        const { tutorId } = req.params; // Obtiene el ID desde la URL
+        const tutor = await Tutor.findById(tutorId); // Busca el tutor en la BD
+
+        if (!tutor) {
+            return res.status(404).json({ success: false, message: 'Tutor no encontrado' });
+        }
+
+        res.status(200).json({ success: true, data: tutor });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error al obtener el tutor', error });
+    }
+};
+
+
+
+export { getTutorDetails, getAllUsers, getAllTutors, getTutorById }; 
 
