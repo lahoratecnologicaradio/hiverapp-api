@@ -1,5 +1,5 @@
 import { Readable } from 'stream';
-import cloudinary from '../config/cloudinary.js'; 
+import cloudinary from '../cloudinary.js'; 
 
 const UploadController = {
   uploadImage: async (req, res) => {
