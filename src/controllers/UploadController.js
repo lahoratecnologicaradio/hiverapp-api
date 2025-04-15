@@ -19,7 +19,8 @@ const UploadController = {
       res.status(200).json({ url: result.secure_url });
     } catch (err) {
       console.error('Upload error:', err);
-      res.status(500).json({ error: 'Error al subir la imagen' });
+      //res.status(500).json({ error: 'Error al subir la imagen' });
+      res.status(500).json({ error: err });
     }
   },
 };
