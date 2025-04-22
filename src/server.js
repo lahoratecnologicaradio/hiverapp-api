@@ -7,6 +7,7 @@ import tutorRoutes from './routes/tutorRoutes.js';
 import {pool} from '../db.js'; // Importa el pool de conexiones
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import twilio from 'twilio';
 
 
 
@@ -107,6 +108,19 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
+
+router.post('/send-verification', async (req, res) => {
+  const { phone } = req.body;
+  const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+  
+  try {
+    const verification = await client.verify.services('VAxxxx')
+      .verifications.create({ to: phone, channel: 'sms' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 
 async function encryptPasswords() {
