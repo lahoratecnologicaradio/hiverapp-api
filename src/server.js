@@ -114,7 +114,7 @@ app.post('/send-verification', async (req, res) => {
   const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
   
   try {
-    const verification = await client.verify.services('VAxxxx')
+    const verification = await client.verify.services('VAd34cbb7850296db01d7c4b6648f8a526')
       .verifications.create({ to: phone, channel: 'sms' });
     res.json({ success: true });
   } catch (error) {
