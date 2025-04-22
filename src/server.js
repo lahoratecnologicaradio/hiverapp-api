@@ -109,7 +109,7 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 
-router.post('/send-verification', async (req, res) => {
+app.post('/send-verification', async (req, res) => {
   const { phone } = req.body;
   const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
   
