@@ -3,7 +3,7 @@ import { pool } from '../../db.js';
 import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
-import cloudinary from './cloudinary.js';
+import cloudinary from '../cloudinary.js';
 import { Readable } from 'stream';
 
 dotenv.config();
