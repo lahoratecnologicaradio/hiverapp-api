@@ -32,20 +32,47 @@ app.post('/api/register', async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
+    // Verificar si el usuario ya existe
+    const [existingUser] = await pool.query(
+      'SELECT * FROM users WHERE email = ?', 
+      [email]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({ 
+        message: 'El correo electrónico ya está registrado' 
+      });
+    }
+
     // Generar hash de la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Guardar en la base de datos con la contraseña encriptada
+    // Guardar en la base de datos
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [name, email, hashedPassword, role]
+      [name, email, hashedPassword, role || 'user'] // Valor por defecto 'user' si no se especifica
     );
 
-    res.json({ message: 'Usuario registrado exitosamente' });
+    // Respuesta compatible con el frontend
+    res.status(201).json({ 
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      user: {
+        id: result.insertId,
+        name,
+        email,
+        role: role || 'user'
+      }
+    });
+    
   } catch (error) {
     console.error('Error en el registro:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message // Opcional: enviar detalles del error
+    });
   }
 });
 
@@ -69,7 +96,7 @@ app.post('/api/login', async (req, res) => {
     const user = rows[0]; // Obtener el primer resultado
 
     // Verificar la contraseña
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);  
 
     if (!isMatch) {
       return res.status(400).json({ message: 'Contraseña incorrecta.' });
