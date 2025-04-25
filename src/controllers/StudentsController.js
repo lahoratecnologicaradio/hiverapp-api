@@ -17,12 +17,13 @@ const StudentsController = {
    */
   getAllStudents: async (req, res) => {
     try {
-      // Consulta mejorada que incluye información del tutor
       const [students] = await pool.query(`
         SELECT 
-        *
-        FROM students 
-        ORDER BY name ASC
+          s.*,
+          c.name AS country_name
+        FROM students s
+        LEFT JOIN countries c ON s.country_id = c.id
+        ORDER BY s.name ASC
       `);
       
       res.status(200).json({
