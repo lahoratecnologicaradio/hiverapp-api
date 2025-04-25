@@ -41,6 +41,92 @@ const StudentsController = {
     }
   },
 
+  updateStudent: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, image, age, country_id, learning_since, last_active, tutor_id } = req.body;
+
+      // Verificar que el estudiante existe
+      const [student] = await pool.query('SELECT * FROM students WHERE id = ?', [id]);
+      if (student.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Estudiante no encontrado'
+        });
+      }
+
+      // Construir la consulta dinámica
+      let updateQuery = 'UPDATE students SET ';
+      const updateParams = [];
+      const updates = [];
+
+      // Agregar solo los campos que tienen valor
+      if (name) {
+        updates.push('name = ?');
+        updateParams.push(name);
+      }
+      if (image) {
+        updates.push('image = ?');
+        updateParams.push(image);
+      }
+      if (age) {
+        updates.push('age = ?');
+        updateParams.push(age);
+      }
+      if (country_id) {
+        updates.push('country_id = ?');
+        updateParams.push(country_id);
+      }
+      if (learning_since) {
+        updates.push('learning_since = ?');
+        updateParams.push(learning_since);
+      }
+      if (last_active) {
+        updates.push('last_active = ?');
+        updateParams.push(last_active);
+      }
+      if (tutor_id !== undefined) { // Para permitir null
+        updates.push('tutor_id = ?');
+        updateParams.push(tutor_id);
+      }
+
+      // Si no hay campos para actualizar
+      if (updates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se proporcionaron datos para actualizar'
+        });
+      }
+
+      // Completar y ejecutar la consulta
+      updateQuery += updates.join(', ') + ' WHERE id = ?';
+      updateParams.push(id);
+
+      await pool.query(updateQuery, updateParams);
+
+      // Obtener el estudiante actualizado con el nombre del país
+      const [updatedStudent] = await pool.query(`
+        SELECT s.*, c.name AS country_name 
+        FROM students s
+        LEFT JOIN countries c ON s.country_id = c.id
+        WHERE s.id = ?
+      `, [id]);
+
+      res.status(200).json({
+        success: true,
+        data: updatedStudent[0]
+      });
+
+    } catch (error) {
+      console.error('Error actualizando estudiante:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al actualizar estudiante',
+        error: error.message
+      });
+    }
+  },
+
   /**
    * Obtiene un estudiante por ID con detalles completos
    */
