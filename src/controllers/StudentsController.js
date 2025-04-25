@@ -43,11 +43,11 @@ const StudentsController = {
 
   updateStudent: async (req, res) => {
     try {
-      const { id } = req.params;
+      const { studentId } = req.params;
       const { name, image, age, country_id, learning_since, last_active, tutor_id } = req.body;
 
       // Verificar que el estudiante existe
-      const [student] = await pool.query('SELECT * FROM students WHERE id = ?', [id]);
+      const [student] = await pool.query('SELECT * FROM students WHERE id = ?', [ studentId ]);
       if (student.length === 0) {
         return res.status(404).json({
           success: false,
@@ -100,7 +100,7 @@ const StudentsController = {
 
       // Completar y ejecutar la consulta
       updateQuery += updates.join(', ') + ' WHERE id = ?';
-      updateParams.push(id);
+      updateParams.push( studentId );
 
       await pool.query(updateQuery, updateParams);
 
@@ -110,7 +110,7 @@ const StudentsController = {
         FROM students s
         LEFT JOIN countries c ON s.country_id = c.id
         WHERE s.id = ?
-      `, [id]);
+      `, [ studentId ]);
 
       res.status(200).json({
         success: true,

@@ -27,11 +27,14 @@ router.get('/tutors/:tutorId', authMiddleware, getTutorById);
 
 router.get('/students', StudentsController.getAllStudents);
 
-router.get('/:studentId', StudentsController.getStudentById);
 
 router.get('/filtered', StudentsController.getStudentsWithFilters);
 
-router.patch('/students/:id', authMiddleware, StudentsController.updateStudent);
+// Ruta para GET (obtener estudiante)
+router.get('/students/:studentId', authMiddleware, StudentsController.getStudentById);
+
+// Ruta para PATCH (actualizar estudiante)
+router.patch('/students/:studentId', authMiddleware, StudentsController.updateStudent);
 
 
 // 🚀 RUTA PARA SUBIR IMAGEN
