@@ -31,6 +31,8 @@ router.get('/:studentId', StudentsController.getStudentById);
 
 router.get('/filtered', StudentsController.getStudentsWithFilters);
 
+router.put('/students/:studentId', authMiddleware, StudentsController.updateStudent);
+
 
 // 🚀 RUTA PARA SUBIR IMAGEN
 router.post('/upload', upload.single('image'), UploadController.uploadImage);
