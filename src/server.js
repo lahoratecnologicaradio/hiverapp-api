@@ -238,7 +238,7 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign({ id: user.id }, JWT_SECRET);
 
     // Enviar respuesta con el token
-    res.json({ token, name: user.name, email: user.email, role: user.role });
+    res.json({ token, name: user.name, email: user.email, role: user.role, id: user.id });
   } catch (error) {
     console.error('Error en el inicio de sesión:', error);
     res.status(500).json({ message: error });
