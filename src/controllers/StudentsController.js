@@ -20,9 +20,13 @@ const StudentsController = {
       const [students] = await pool.query(`
         SELECT 
           s.*,
-          c.name AS country_name
+          c.name AS country_name,
+          l_aprende.name AS aprendiendo,  
+          l_habla.name AS habla            
         FROM students s
         LEFT JOIN countries c ON s.country_id = c.id
+        LEFT JOIN languages l_aprende ON s.aprendiendo = l_aprende.id
+        LEFT JOIN languages l_habla ON s.habla = l_habla.id  -- Nuevo JOIN para idioma hablado
         ORDER BY s.name ASC
       `);
       
