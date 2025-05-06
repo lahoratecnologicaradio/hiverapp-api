@@ -303,6 +303,7 @@ async function encryptPasswords() {
     console.error('Error al encriptar contraseñas:', error);
   } finally {
     pool.end();
+    //pool.end();
   }
 }
 
