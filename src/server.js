@@ -3,16 +3,21 @@ import { Server } from 'socket.io';
 import {pool} from '../db.js';
 import dotenv from 'dotenv';
 import {PORT, JWT_SECRET} from './config.js';
+import { createServer } from 'http';
 const app = express();
 
 
-
+const httpServer = createServer(app);
 
 // Servir archivos estáticos
 app.use(express.static('public'));
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+
+const server = httpServer.listen(PORT, () => {
+  console.log(`Servidor en puerto ${PORT}`);
 });
 
 const io = new Server(server);
