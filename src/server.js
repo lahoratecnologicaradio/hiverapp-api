@@ -1,26 +1,20 @@
+
 import express from 'express';
 import { Server } from 'socket.io';
-import {pool} from '../db.js';
+import { pool } from '../db.js';
 import dotenv from 'dotenv';
-import {PORT, JWT_SECRET} from './config.js';
+import { PORT, JWT_SECRET } from './config.js';
 import { createServer } from 'http';
+
 const app = express();
+const httpServer = createServer(app);  // Este será tu servidor principal
 
-
-const httpServer = createServer(app);
-
-// Servir archivos estáticos
+// Configuraciones
+dotenv.config();
 app.use(express.static('public'));
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
-
-const server = httpServer.listen(PORT, () => {
-  console.log(`Servidor en puerto ${PORT}`);
-});
-
-const io = new Server(server);
+// Socket.io
+const io = new Server(httpServer);  // Usamos httpServer en lugar de crear otro
 
 // Manejo de conexiones Socket.io
 io.on('connection', (socket) => {
@@ -65,9 +59,18 @@ io.on('connection', (socket) => {
       señal: señal
     });
   });
-
-  socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
-    pool.query('UPDATE users SET online = false WHERE socket_id = ?', [socket.id]);
-  });
 });
+
+// Iniciar UN solo servidor
+httpServer.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+
+
+
+
+
+
+
+
+
