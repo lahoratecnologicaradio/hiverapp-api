@@ -22,10 +22,10 @@ io.on('connection', (socket) => {
   // Autenticar usuario y actualizar en BD
   socket.on('autenticar', async (userId) => {
     try {
-      await pool.query('UPDATE usuarios SET online = true, socket_id = ? WHERE id = ?', 
+      await pool.query('UPDATE users SET online = true, socket_id = ? WHERE id = ?', 
         [socket.id, userId]);
       
-      const [user] = await pool.query('SELECT * FROM usuarios WHERE id = ?', [userId]);
+      const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
       socket.emit('autenticado', user);
     } catch (err) {
       console.error(err);
@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
   // Iniciar llamada a usuario específico
   socket.on('llamar', async ({de, a}) => {
     try {
-      const [results] = await pool.query('SELECT socket_id FROM usuarios WHERE id = ?', [a]);
+      const [results] = await pool.query('SELECT socket_id FROM users WHERE id = ?', [a]);
       
       if (results.length > 0 && results[0].socket_id) {
         const destinatarioSocketId = results[0].socket_id;
@@ -61,6 +61,6 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`Cliente desconectado: ${socket.id}`);
-    pool.query('UPDATE usuarios SET online = false WHERE socket_id = ?', [socket.id]);
+    pool.query('UPDATE users SET online = false WHERE socket_id = ?', [socket.id]);
   });
 });
