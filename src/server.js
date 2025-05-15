@@ -1,20 +1,32 @@
-
 import express from 'express';
 import { Server } from 'socket.io';
 import { pool } from '../db.js';
 import dotenv from 'dotenv';
-import { PORT, JWT_SECRET } from './config.js';
+import { PORT } from './config.js';
 import { createServer } from 'http';
+import cors from 'cors';
 
-const app = express();
-const httpServer = createServer(app);  // Este será tu servidor principal
-
-// Configuraciones
+// Configuración inicial
 dotenv.config();
+const app = express();
+
+// Middlewares
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST']
+}));
 app.use(express.static('public'));
 
-// Socket.io
-const io = new Server(httpServer);  // Usamos httpServer en lugar de crear otro
+// Creación del servidor HTTP
+const httpServer = createServer(app);
+
+// Configuración de Socket.io
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 
 // Manejo de conexiones Socket.io
 io.on('connection', (socket) => {
@@ -29,7 +41,7 @@ io.on('connection', (socket) => {
       const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
       socket.emit('autenticado', user);
     } catch (err) {
-      console.error(err);
+      console.error('Error en autenticación:', err);
     }
   });
 
@@ -48,7 +60,7 @@ io.on('connection', (socket) => {
         });
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error en llamada:', err);
     }
   });
 
@@ -59,16 +71,36 @@ io.on('connection', (socket) => {
       señal: señal
     });
   });
+
+  // Manejar desconexión
+  socket.on('disconnect', async () => {
+    console.log(`Cliente desconectado: ${socket.id}`);
+    try {
+      await pool.query('UPDATE users SET online = false, socket_id = NULL WHERE socket_id = ?', [socket.id]);
+    } catch (err) {
+      console.error('Error al actualizar estado:', err);
+    }
+  });
 });
 
-// Iniciar UN solo servidor
+// Manejo de errores de conexión
+io.engine.on("connection_error", (err) => {
+  console.log("Error de conexión Socket.io:");
+  console.log(err.req);
+  console.log(err.code);
+  console.log(err.message);
+  console.log(err.context);
+});
+
+// Iniciar servidor
 httpServer.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
-
-
-
+// Manejo de errores no capturados
+process.on('unhandledRejection', (err) => {
+  console.error('Error no capturado:', err);
+});
 
 
 
