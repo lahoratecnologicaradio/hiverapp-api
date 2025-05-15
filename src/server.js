@@ -1,6 +1,8 @@
 import express from 'express';
 import { Server } from 'socket.io';
 import {pool} from '../db.js';
+import dotenv from 'dotenv';
+import {PORT, JWT_SECRET} from './config.js';
 const app = express();
 
 
@@ -9,8 +11,8 @@ const app = express();
 // Servir archivos estáticos
 app.use(express.static('public'));
 
-const server = app.listen(3000, () => {
-  console.log('Servidor en puerto 3000');
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
 const io = new Server(server);
