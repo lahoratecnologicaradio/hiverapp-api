@@ -172,77 +172,88 @@ io.on('connection', (socket) => {
 
   // Manejo de llamadas
   socket.on('llamar', async ({ de, a }, callback) => {
+    console.log(`[LLAMADA INICIADA] De: ${de}, A: ${a}, SocketID: ${socket.id}`);
+    
     try {
-      // 1. Registrar el intento de llamada en la BD
-      const [callLog] = await pool.query(
-        'INSERT INTO llamadas (origen_id, destino_id, estado) VALUES (?, ?, ?)',
-        [de, a, 'iniciada']
-      );
+      // 1. Verificar parámetros
+      if (!de || !a) {
+        throw new Error('Parámetros incompletos');
+      }
   
-      // 2. Obtener información del destinatario
+      // 2. Registrar en la base de datos
+      const [callLog] = await pool.query(
+        'INSERT INTO call_attempts (caller_id, receiver_id, status) VALUES (?, ?, ?)',
+        [de, a, 'attempted']
+      );
+      console.log('Registro de llamada creado:', callLog.insertId);
+  
+      // 3. Buscar destinatario
       const [results] = await pool.query(
-        'SELECT socket_id, online FROM users WHERE id = ?', 
+        'SELECT id, socket_id, online FROM users WHERE id = ?',
         [a]
       );
+      console.log('Resultados de búsqueda:', results);
   
+      if (results.length === 0) {
+        throw new Error('Destinatario no existe');
+      }
+  
+      const destinatario = results[0];
       const response = {
-        callId: callLog.insertId,  // ID del registro creado
-        destinatario: a,
+        callId: callLog.insertId,
+        receiver: destinatario.id,
+        receiverOnline: destinatario.online,
         timestamp: new Date().toISOString()
       };
   
-      if (results.length > 0) {
-        const destinatario = results[0];
-        response.destinatarioStatus = destinatario.online ? 'online' : 'offline';
-  
-        if (destinatario.socket_id && destinatario.online) {
-          // 3. Actualizar estado en BD antes de notificar
-          await pool.query(
-            'UPDATE users SET ultima_llamada = NOW() WHERE id IN (?, ?)',
-            [de, a]
-          );
-  
-          // Notificar al destinatario
-          io.to(destinatario.socket_id).emit('llamada_entrante', {
-            de: de,
-            socketId: socket.id,
-            callId: callLog.insertId
-          });
-  
-          response.status = 'notificado';
-        } else {
-          response.status = 'destinatario_no_disponible';
-        }
+      if (destinatario.online && destinatario.socket_id) {
+        // 4. Notificar al destinatario
+        io.to(destinatario.socket_id).emit('llamada_entrante', {
+          from: de,
+          to: a,
+          callId: callLog.insertId,
+          socketId: socket.id
+        });
+        console.log(`Notificación enviada a: ${destinatario.socket_id}`);
+        
+        response.status = 'notified';
       } else {
-        response.status = 'destinatario_no_existe';
+        response.status = 'receiver_offline';
       }
   
-      // 4. Verificación final (opcional - para debug)
-      const [verify] = await pool.query(
-        'SELECT * FROM llamadas WHERE id = ?',
-        [callLog.insertId]
+      // 5. Actualizar base de datos
+      await pool.query(
+        'UPDATE call_attempts SET status = ? WHERE id = ?',
+        [response.status, callLog.insertId]
       );
-      console.log('Registro de llamada verificado:', verify[0]);
   
-      if (callback) callback(response);
+      // 6. Responder al llamante
+      if (callback) {
+        callback({
+          success: true,
+          ...response
+        });
+      }
   
     } catch (err) {
-      console.error('Error en llamada:', err);
+      console.error('[ERROR EN LLAMADA]', err);
       
-      // Registrar el error en la BD
+      // Registrar error en base de datos
       await pool.query(
-        'INSERT INTO errores (endpoint, error, detalle) VALUES (?, ?, ?)',
-        ['llamar', err.message, JSON.stringify({ de, a })]
+        'INSERT INTO error_logs (endpoint, error_message, details) VALUES (?, ?, ?)',
+        ['socket/llamar', err.message, JSON.stringify({ de, a })]
       );
   
-      if (callback) callback({
-        success: false,
-        error: err.message,
-        dbUpdated: false
-      });
+      if (callback) {
+        callback({
+          success: false,
+          error: err.message,
+          code: 'CALL_FAILED'
+        });
+      }
     }
   });
-
+  
   // Señales WebRTC
   socket.on('senal_webrtc', ({destinatario, señal}, callback) => {
     try {
