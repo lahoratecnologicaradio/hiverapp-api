@@ -10,11 +10,12 @@ import cors from 'cors';
 dotenv.config();
 const app = express();
 
-// Middlewares
+// Middlewares para HTTP
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] // Añadidos métodos PUT y DELETE
 }));
+app.use(express.json()); // Para parsear JSON en endpoints REST
 app.use(express.static('public'));
 
 // Creación del servidor HTTP
@@ -24,60 +25,142 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST', 'PUT', 'DELETE'] // Añadidos métodos PUT y DELETE
+  },
+  transports: ['websocket', 'polling'] // Soporte para ambos transportes
+});
+
+// ================== ENDPOINTS HTTP ================== //
+
+// Endpoint GET de ejemplo
+app.get('/api/users', async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT * FROM users');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Manejo de conexiones Socket.io
+// Endpoint POST de ejemplo
+app.post('/api/users', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO users (name, email) VALUES (?, ?)',
+      [name, email]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint PUT de ejemplo
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+    await pool.query(
+      'UPDATE users SET name = ?, email = ? WHERE id = ?',
+      [name, email, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint DELETE de ejemplo
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para probar estado del servidor
+app.get('/status', (req, res) => {
+  res.json({
+    status: 'running',
+    socketClients: io.engine.clientsCount,
+    httpMethods: ['GET', 'POST', 'PUT', 'DELETE'] // Lista de métodos soportados
+  });
+});
+
+// Endpoint para notificaciones de prueba
+app.post('/test-notification', async (req, res) => {
+  const { userId, message } = req.body;
+  
+  try {
+    const [user] = await pool.query('SELECT socket_id FROM users WHERE id = ?', [userId]);
+    if (user.length > 0 && user[0].socket_id) {
+      io.to(user[0].socket_id).emit('test-message', { 
+        message,
+        timestamp: new Date().toISOString()
+      });
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Usuario no encontrado o desconectado' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ================== WEBSOCKETS ================== //
+
 io.on('connection', (socket) => {
   console.log(`Nuevo cliente conectado: ${socket.id}`);
 
-  // Autenticar usuario y actualizar en BD
+  // Autenticar usuario
   socket.on('autenticar', async (userId, callback) => {
     try {
-      // Actualizar estado del usuario
-      const updateResult = await pool.query(
+      const [updateResult] = await pool.query(
         'UPDATE users SET online = true, socket_id = ? WHERE id = ?', 
         [socket.id, userId]
       );
       
-      // Obtener datos actualizados del usuario
       const [userRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
       
       if (userRows.length === 0) {
-        throw new Error('Usuario no encontrado después de actualizar');
+        throw new Error('Usuario no encontrado');
       }
       
-      const user = userRows[0];
-      
-      // Emitir respuesta con todos los datos relevantes
       const response = {
         success: true,
-        user: user,
+        user: userRows[0],
         updateResult: {
-          affectedRows: updateResult[0].affectedRows,
-          changedRows: updateResult[0].changedRows
+          affectedRows: updateResult.affectedRows,
+          changedRows: updateResult.changedRows
         }
       };
       
-      socket.emit('autenticado', response);
       if (callback) callback(response);
-
     } catch (err) {
-      console.error('Error en autenticación:', err);
-      const errorResponse = {
+      //const errorResponse = { success: false, error: err.message };
+          // Mensaje de error legible
+    const mensajeError = `Error de autenticación: ${err.message}. Por favor, inténtalo de nuevo.`;
+    if (callback) {
+      callback({
         success: false,
-        error: err.message
-      };
-      socket.emit('error_autenticacion', errorResponse);
-      if (callback) callback(errorResponse);
+        error: mensajeError,  // Texto legible
+        detalles: err.message // Opcional: mantener el mensaje original
+      });
+    }
     }
   });
 
-  // Iniciar llamada a usuario específico
+  // Manejo de llamadas
   socket.on('llamar', async ({de, a}, callback) => {
     try {
-      const [results] = await pool.query('SELECT socket_id, online FROM users WHERE id = ?', [a]);
+      const [results] = await pool.query(
+        'SELECT socket_id, online FROM users WHERE id = ?', 
+        [a]
+      );
       
       const response = {
         queryResults: results,
@@ -91,14 +174,10 @@ io.on('connection', (socket) => {
         
         if (destinatario.socket_id && destinatario.online) {
           response.status = 'destinatario_encontrado';
-          const destinatarioSocketId = destinatario.socket_id;
-          
-          // Notificar al destinatario
-          io.to(destinatarioSocketId).emit('llamada_entrante', {
+          io.to(destinatario.socket_id).emit('llamada_entrante', {
             de: de,
             socketId: socket.id
           });
-          
           response.message = 'Llamada enviada correctamente';
         } else {
           response.status = 'destinatario_no_disponible';
@@ -109,65 +188,54 @@ io.on('connection', (socket) => {
         response.message = 'El destinatario no existe';
       }
       
-      socket.emit('estado_llamada', response);
       if (callback) callback(response);
-
     } catch (err) {
-      console.error('Error en llamada:', err);
-      const errorResponse = {
-        success: false,
-        error: err.message
-      };
-      socket.emit('error_llamada', errorResponse);
+      const errorResponse = { success: false, error: err.message };
       if (callback) callback(errorResponse);
     }
   });
 
-  // Manejar señales WebRTC
+  // Señales WebRTC
   socket.on('senal_webrtc', ({destinatario, señal}, callback) => {
     try {
       io.to(destinatario).emit('senal_webrtc', {
         remitente: socket.id,
-        señal: señal
+        señal: señal,
+        timestamp: Date.now()
       });
-      
-      if (callback) callback({ success: true, message: 'Señal enviada' });
+      if (callback) callback({ success: true });
     } catch (err) {
-      console.error('Error enviando señal:', err);
       if (callback) callback({ success: false, error: err.message });
     }
   });
 
-  // Manejar desconexión
+  // Manejo de desconexión
   socket.on('disconnect', async () => {
     console.log(`Cliente desconectado: ${socket.id}`);
     try {
-      const result = await pool.query(
+      await pool.query(
         'UPDATE users SET online = false, socket_id = NULL WHERE socket_id = ?', 
         [socket.id]
       );
-      console.log('Resultado de desconexión:', result[0]);
     } catch (err) {
       console.error('Error al actualizar estado:', err);
     }
   });
 });
 
-// Manejo de errores de conexión
+// Manejo de errores
 io.engine.on("connection_error", (err) => {
-  console.log("Error de conexión Socket.io:");
-  console.log(err.req);
-  console.log(err.code);
-  console.log(err.message);
-  console.log(err.context);
+  console.error("Error de conexión Socket.io:", err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Error no capturado:', err);
 });
 
 // Iniciar servidor
 httpServer.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
-
-// Manejo de errores no capturados
-process.on('unhandledRejection', (err) => {
-  console.error('Error no capturado:', err);
+  console.log(`- WebSockets: ws://localhost:${PORT}`);
+  console.log(`- HTTP: http://localhost:${PORT}/api/users`);
+  console.log(`- Estado: http://localhost:${PORT}/status`);
 });
