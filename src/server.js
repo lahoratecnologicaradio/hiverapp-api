@@ -56,6 +56,22 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+
+// Endpoint de prueba directa
+app.post('/api/test-db', async (req, res) => {
+  try {
+    const [result] = await pool.query('UPDATE users SET online = ? WHERE id = ?', 
+      [req.body.online, req.body.id]);
+    
+    res.json({
+      affectedRows: result.affectedRows,
+      changedRows: result.changedRows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint PUT de ejemplo
 app.put('/api/users/:id', async (req, res) => {
   try {
