@@ -87,6 +87,32 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
+app.get('/api/diagnostic/call/:callId', async (req, res) => {
+  try {
+    const [call] = await pool.query(
+      `SELECT c.*, u1.name as caller_name, u2.name as receiver_name 
+       FROM call_attempts c
+       JOIN users u1 ON c.caller_id = u1.id
+       JOIN users u2 ON c.receiver_id = u2.id
+       WHERE c.id = ?`,
+      [req.params.callId]
+    );
+
+    if (call.length === 0) {
+      return res.status(404).json({ error: 'Llamada no encontrada' });
+    }
+
+    res.json({
+      success: true,
+      call: call[0],
+      serverTime: new Date().toISOString(),
+      activeConnections: io.engine.clientsCount
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint DELETE de ejemplo
 app.delete('/api/users/:id', async (req, res) => {
   try {
@@ -253,7 +279,7 @@ io.on('connection', (socket) => {
       }
     }
   });
-  
+
   // Señales WebRTC
   socket.on('senal_webrtc', ({destinatario, señal}, callback) => {
     try {
