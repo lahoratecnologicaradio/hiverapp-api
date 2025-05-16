@@ -155,43 +155,75 @@ io.on('connection', (socket) => {
   });
 
   // Manejo de llamadas
-  socket.on('llamar', async ({de, a}, callback) => {
+  socket.on('llamar', async ({ de, a }, callback) => {
     try {
+      // 1. Registrar el intento de llamada en la BD
+      const [callLog] = await pool.query(
+        'INSERT INTO llamadas (origen_id, destino_id, estado) VALUES (?, ?, ?)',
+        [de, a, 'iniciada']
+      );
+  
+      // 2. Obtener información del destinatario
       const [results] = await pool.query(
         'SELECT socket_id, online FROM users WHERE id = ?', 
         [a]
       );
-      
+  
       const response = {
-        queryResults: results,
-        destinatarioId: a,
-        callerId: de
+        callId: callLog.insertId,  // ID del registro creado
+        destinatario: a,
+        timestamp: new Date().toISOString()
       };
-      
+  
       if (results.length > 0) {
         const destinatario = results[0];
-        response.destinatarioData = destinatario;
-        
+        response.destinatarioStatus = destinatario.online ? 'online' : 'offline';
+  
         if (destinatario.socket_id && destinatario.online) {
-          response.status = 'destinatario_encontrado';
+          // 3. Actualizar estado en BD antes de notificar
+          await pool.query(
+            'UPDATE users SET ultima_llamada = NOW() WHERE id IN (?, ?)',
+            [de, a]
+          );
+  
+          // Notificar al destinatario
           io.to(destinatario.socket_id).emit('llamada_entrante', {
             de: de,
-            socketId: socket.id
+            socketId: socket.id,
+            callId: callLog.insertId
           });
-          response.message = 'Llamada enviada correctamente';
+  
+          response.status = 'notificado';
         } else {
           response.status = 'destinatario_no_disponible';
-          response.message = 'El destinatario no está conectado';
         }
       } else {
         response.status = 'destinatario_no_existe';
-        response.message = 'El destinatario no existe';
       }
-      
+  
+      // 4. Verificación final (opcional - para debug)
+      const [verify] = await pool.query(
+        'SELECT * FROM llamadas WHERE id = ?',
+        [callLog.insertId]
+      );
+      console.log('Registro de llamada verificado:', verify[0]);
+  
       if (callback) callback(response);
+  
     } catch (err) {
-      const errorResponse = { success: false, error: err.message };
-      if (callback) callback(errorResponse);
+      console.error('Error en llamada:', err);
+      
+      // Registrar el error en la BD
+      await pool.query(
+        'INSERT INTO errores (endpoint, error, detalle) VALUES (?, ?, ?)',
+        ['llamar', err.message, JSON.stringify({ de, a })]
+      );
+  
+      if (callback) callback({
+        success: false,
+        error: err.message,
+        dbUpdated: false
+      });
     }
   });
 
