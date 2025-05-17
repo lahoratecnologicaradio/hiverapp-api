@@ -1,311 +1,326 @@
 import express from 'express';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import {PORT, JWT_SECRET} from './config.js';
-import tutorRoutes from './routes/tutorRoutes.js';
-import {pool} from '../db.js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import twilio from 'twilio';
-import http from 'http';
 import { Server } from 'socket.io';
+import { pool } from '../db.js';
+import dotenv from 'dotenv';
+import { PORT } from './config.js';
+import { createServer } from 'http';
+import cors from 'cors';
 
+// Configuración inicial
 dotenv.config();
-
 const app = express();
-const server = http.createServer(app);
+
+// Middlewares para HTTP
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] // Añadidos métodos PUT y DELETE
+}));
+app.use(express.json()); // Para parsear JSON en endpoints REST
+app.use(express.static('public'));
+
+// Creación del servidor HTTP
+const httpServer = createServer(app);
 
 // Configuración de Socket.io
-/*const io = new Server(server, {
+const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Ajusta en producción
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});*/
-
-const io = require('socket.io')(http);
-
-// Almacén temporal de llamadas
-const activeCalls = {};
-
-// Middlewares
-app.use(cors());
-app.use(bodyParser.json());
-
-// Rutas
-app.use('/api/tutor', tutorRoutes);
-
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'] // Añadidos métodos PUT y DELETE
+  },
+  transports: ['websocket', 'polling'] // Soporte para ambos transportes
 });
 
+// ================== ENDPOINTS HTTP ================== //
 
-// Socket.io Connection
-io.on('connection', (socket) => {
-  console.log(`Cliente conectado: ${socket.id}`);
-
-  // Registrar usuario autenticado
-  socket.on('register', async ({ userId, token }) => {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
-      if (decoded.id !== userId) {
-        throw new Error('Token inválido');
-      }
-
-      socket.userId = userId;
-      console.log(`Usuario ${userId} registrado para llamadas`);
-      
-      // Obtener datos del usuario desde DB
-      const [user] = await pool.query('SELECT name FROM users WHERE id = ?', [userId]);
-      socket.userName = user[0]?.name || 'Usuario';
-
-    } catch (error) {
-      console.error('Error en registro Socket.io:', error);
-      socket.disconnect();
-    }
-  });
-
-  // Iniciar llamada
-  socket.on('start-call', async ({ callerId, calleeId }) => {
-    try {
-      // Verificar que ambos usuarios existen
-      const [caller] = await pool.query('SELECT id, name FROM users WHERE id = ?', [callerId]);
-      const [callee] = await pool.query('SELECT id FROM users WHERE id = ?', [calleeId]);
-
-      if (!caller.length || !callee.length) {
-        throw new Error('Usuario no encontrado');
-      }
-
-      activeCalls[callerId] = { 
-        calleeId, 
-        socketId: socket.id,
-        callerName: caller[0].name
-      };
-      
-      // Notificar al receptor
-      io.to(calleeId).emit('incoming-call', { 
-        callerId,
-        callerName: caller[0].name
-      });
-
-    } catch (error) {
-      console.error('Error al iniciar llamada:', error);
-      socket.emit('call-error', { message: error.message });
-    }
-  });
-
-  // Aceptar llamada
-  socket.on('accept-call', ({ callerId, calleeId }) => {
-    const call = activeCalls[callerId];
-    if (!call) return;
-
-    io.to(callerId).emit('call-accepted', { calleeId });
-    io.to(calleeId).emit('call-started', { callerId });
-  });
-
-  // Transmitir señal WebRTC
-  socket.on('webrtc-signal', ({ targetUserId, signal }) => {
-    socket.to(targetUserId).emit('webrtc-signal', { 
-      senderId: socket.userId, 
-      signal 
-    });
-  });
-
-  // Finalizar llamada
-  socket.on('end-call', ({ callerId }) => {
-    const call = activeCalls[callerId];
-    if (!call) return;
-
-    io.to(call.calleeId).emit('call-ended');
-    delete activeCalls[callerId];
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
-    // Limpiar llamadas si el usuario estaba en una
-    Object.keys(activeCalls).forEach(callerId => {
-      if (activeCalls[callerId].socketId === socket.id) {
-        io.to(activeCalls[callerId].calleeId).emit('call-ended');
-        delete activeCalls[callerId];
-      }
-    });
-  }); 
-});
-
-// Endpoint para obtener datos de llamada
-app.get('/api/call/user/:userId', async (req, res) => {
+// Endpoint GET de ejemplo
+app.get('/api/users', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const [user] = await pool.query(
-      'SELECT id, name, image FROM users WHERE id = ?', 
-      [userId]
+    const [users] = await pool.query('SELECT * FROM users');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint POST de ejemplo
+app.post('/api/users', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO users (name, email) VALUES (?, ?)',
+      [name, email]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Endpoint de prueba directa
+app.post('/api/test-db', async (req, res) => {
+  try {
+    const [result] = await pool.query('UPDATE users SET online = ? WHERE id = ?', 
+      [req.body.online, req.body.id]);
+    
+    res.json({
+      affectedRows: result.affectedRows,
+      changedRows: result.changedRows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint PUT de ejemplo
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+    await pool.query(
+      'UPDATE users SET name = ?, email = ? WHERE id = ?',
+      [name, email, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/diagnostic/call/:callId', async (req, res) => {
+  try {
+    const [call] = await pool.query(
+      `SELECT c.*, u1.name as caller_name, u2.name as receiver_name 
+       FROM call_attempts c
+       JOIN users u1 ON c.caller_id = u1.id
+       JOIN users u2 ON c.receiver_id = u2.id
+       WHERE c.id = ?`,
+      [req.params.callId]
     );
 
-    if (!user.length) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (call.length === 0) {
+      return res.status(404).json({ error: 'Llamada no encontrada' });
     }
 
     res.json({
-      id: user[0].id,
-      name: user[0].name,
-      image: user[0].image
-    });
-  } catch (error) {
-    console.error('Error obteniendo datos de usuario:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-
-
-app.post('/api/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
-
-  try {
-    // Verificar si el usuario ya existe
-    const [existingUser] = await pool.query(
-      'SELECT * FROM users WHERE email = ?', 
-      [email]
-    );
-
-    if (existingUser.length > 0) {
-      return res.status(400).json({ 
-        message: 'El correo electrónico ya está registrado' 
-      });
-    }
-
-    // Generar hash de la contraseña
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Guardar en la base de datos
-    const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [name, email, hashedPassword, role || 'user'] // Valor por defecto 'user' si no se especifica
-    );
-
-    // Respuesta compatible con el frontend
-    res.status(201).json({ 
       success: true,
-      message: 'Usuario registrado exitosamente',
-      user: {
-        id: result.insertId,
-        name,
-        email,
-        role: role || 'user'
-      }
+      call: call[0],
+      serverTime: new Date().toISOString(),
+      activeConnections: io.engine.clientsCount
     });
-    
-  } catch (error) {
-    console.error('Error en el registro:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error interno del servidor',
-      error: error.message // Opcional: enviar detalles del error
-    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-
-
-    //encryptPasswords();
-    
-    // Buscar usuario en la base de datos usando el pool
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-   
-
-    // Verificar si el usuario existe
-    if (rows.length === 0) {
-      return res.status(400).json({ message: 'Usuario no encontrado.' });
-    }
-
-    const user = rows[0]; // Obtener el primer resultado
-
-    // Verificar la contraseña
-    const isMatch = await bcrypt.compare(password, user.password);  
-
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Contraseña incorrecta.' });
-    }
-
-    // Generar token JWT 
-    const token = jwt.sign({ id: user.id }, JWT_SECRET);
-
-    // Enviar respuesta con el token
-    res.json({ token, name: user.name, email: user.email, role: user.role, id: user.id });
-  } catch (error) {
-    console.error('Error en el inicio de sesión:', error);
-    res.status(500).json({ message: error });
-  }
-});
-
-// Ruta para eliminar un usuario por ID
+// Endpoint DELETE de ejemplo
 app.delete('/api/users/:id', async (req, res) => {
-  const { id } = req.params; // Obtener el ID del usuario de los parámetros de la URL
-
   try {
-    // Verificar si el usuario existe
-    const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
-
-    if (user.length === 0) {
-      return res.status(404).json({ message: 'Usuario no encontrado.' });
-    }
-
-    // Eliminar el usuario de la base de datos
+    const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
-
-    res.json({ message: 'Usuario eliminado exitosamente.' });
-  } catch (error) {
-    console.error('Error al eliminar el usuario:', error);
-    res.status(500).json({ message: 'Error interno del servidor.' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+// Endpoint para probar estado del servidor
+app.get('/status', (req, res) => {
+  res.json({
+    status: 'running',
+    socketClients: io.engine.clientsCount,
+    httpMethods: ['GET', 'POST', 'PUT', 'DELETE'] // Lista de métodos soportados
+  });
+});
 
-app.post('/send-verification', async (req, res) => {
-  const { phone } = req.body;
-  const client = new twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+// Endpoint para notificaciones de prueba
+app.post('/test-notification', async (req, res) => {
+  const { userId, message } = req.body;
   
   try {
-    const verification = await client.verify.services('VAd34cbb7850296db01d7c4b6648f8a526')
-      .verifications.create({ to: phone, channel: 'sms' });
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const [user] = await pool.query('SELECT socket_id FROM users WHERE id = ?', [userId]);
+    if (user.length > 0 && user[0].socket_id) {
+      io.to(user[0].socket_id).emit('test-message', { 
+        message,
+        timestamp: new Date().toISOString()
+      });
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Usuario no encontrado o desconectado' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+// ================== WEBSOCKETS ================== //
 
-async function encryptPasswords() {
-  try {
-    // Obtener los usuarios con contraseñas en texto plano
-    const [users] = await pool.query('SELECT id, password FROM users');
+io.on('connection', (socket) => {
+  console.log(`Nuevo cliente conectado: ${socket.id}`);
 
-    for (let user of users) {
-      if (!user.password.startsWith('$2a$')) { // Evita re-encriptar si ya están en bcrypt
-        const hashedPassword = await bcrypt.hash(user.password, 10);
+  // Autenticar usuario
+  socket.on('autenticar', async (userId, callback) => {
+    try {
+      const [updateResult] = await pool.query(
+        'UPDATE users SET online = true, socket_id = ? WHERE id = ?', 
+        [socket.id, userId]
+      );
+      
+      const [userRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+      
+      if (userRows.length === 0) {
+        throw new Error('Usuario no encontrado');
+      }
+      
+      const response = {
+        success: true,
+        user: userRows[0],
+        updateResult: {
+          affectedRows: updateResult.affectedRows,
+          changedRows: updateResult.changedRows
+        }
+      };
+      
+      if (callback) callback(response);
+    } catch (err) {
+      //const errorResponse = { success: false, error: err.message };
+          // Mensaje de error legible
+    const mensajeError = `Error de autenticación: ${err.message}. Por favor, inténtalo de nuevo.`;
+    if (callback) {
+      callback({
+        success: false,
+        error: mensajeError,  // Texto legible
+        detalles: err.message // Opcional: mantener el mensaje original
+      });
+    }
+    }
+  });
 
-        // Actualizar la contraseña en la base de datos
-        await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-
-        console.log(`Contraseña del usuario ID ${user.id} encriptada.`);
+  // Manejo de llamadas
+  socket.on('llamar', async ({ de, a }, callback) => {
+    console.log(`[LLAMADA INICIADA] De: ${de}, A: ${a}, SocketID: ${socket.id}`);
+    
+    try {
+      // 1. Verificar parámetros
+      if (!de || !a) {
+        throw new Error('Parámetros incompletos');
+      }
+  
+      // 2. Registrar en la base de datos
+      const [callLog] = await pool.query(
+        'INSERT INTO call_attempts (caller_id, receiver_id, status) VALUES (?, ?, ?)',
+        [de, a, 'attempted']
+      );
+      console.log('Registro de llamada creado:', callLog.insertId);
+  
+      // 3. Buscar destinatario
+      const [results] = await pool.query(
+        'SELECT id, socket_id, online FROM users WHERE id = ?',
+        [a]
+      );
+      console.log('Resultados de búsqueda:', results);
+  
+      if (results.length === 0) {
+        throw new Error('Destinatario no existe');
+      }
+  
+      const destinatario = results[0];
+      const response = {
+        callId: callLog.insertId,
+        receiver: destinatario.id,
+        receiverOnline: destinatario.online,
+        timestamp: new Date().toISOString()
+      };
+  
+      if (destinatario.online && destinatario.socket_id) {
+        // 4. Notificar al destinatario
+        io.to(destinatario.socket_id).emit('llamada_entrante', {
+          from: de,
+          to: a,
+          callId: callLog.insertId,
+          socketId: socket.id
+        });
+        console.log(`Notificación enviada a: ${destinatario.socket_id}`);
+        
+        response.status = 'notified';
+      } else {
+        response.status = 'receiver_offline';
+      }
+  
+      // 5. Actualizar base de datos
+      await pool.query(
+        'UPDATE call_attempts SET status = ? WHERE id = ?',
+        [response.status, callLog.insertId]
+      );
+  
+      // 6. Responder al llamante
+      if (callback) {
+        callback({
+          success: true,
+          ...response
+        });
+      }
+  
+    } catch (err) {
+      console.error('[ERROR EN LLAMADA]', err);
+      
+      // Registrar error en base de datos
+      await pool.query(
+        'INSERT INTO error_logs (endpoint, error_message, details) VALUES (?, ?, ?)',
+        ['socket/llamar', err.message, JSON.stringify({ de, a })]
+      );
+  
+      if (callback) {
+        callback({
+          success: false,
+          error: err.message,
+          code: 'CALL_FAILED'
+        });
       }
     }
+  });
 
-    console.log('Todas las contraseñas han sido encriptadas.');
-  } catch (error) {
-    console.error('Error al encriptar contraseñas:', error);
-  } finally {
-    pool.end();
-    //pool.end();
-  }
-}
+  // Señales WebRTC
+  socket.on('senal_webrtc', ({destinatario, señal}, callback) => {
+    try {
+      io.to(destinatario).emit('senal_webrtc', {
+        remitente: socket.id,
+        señal: señal,
+        timestamp: Date.now()
+      });
+      if (callback) callback({ success: true });
+    } catch (err) {
+      if (callback) callback({ success: false, error: err.message });
+    }
+  });
 
+  // Manejo de desconexión
+  socket.on('disconnect', async () => {
+    console.log(`Cliente desconectado: ${socket.id}`);
+    try {
+      await pool.query(
+        'UPDATE users SET online = false, socket_id = NULL WHERE socket_id = ?', 
+        [socket.id]
+      );
+    } catch (err) {
+      console.error('Error al actualizar estado:', err);
+    }
+  });
+});
+
+// Manejo de errores
+io.engine.on("connection_error", (err) => {
+  console.error("Error de conexión Socket.io:", err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Error no capturado:', err);
+});
+
+// Iniciar servidor
+httpServer.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`- WebSockets: ws://localhost:${PORT}`);
+  console.log(`- HTTP: http://localhost:${PORT}/api/users`);
+  console.log(`- Estado: http://localhost:${PORT}/status`);
+});
