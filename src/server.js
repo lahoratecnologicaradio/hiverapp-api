@@ -25,7 +25,6 @@ const server = http.createServer(app);
   }
 });*/
 
-const io = require('socket.io')(http);
 
 // Almacén temporal de llamadas
 const activeCalls = {};
@@ -43,98 +42,8 @@ app.listen(PORT, () => {
 });
 
 
-// Socket.io Connection
-io.on('connection', (socket) => {
-  console.log(`Cliente conectado: ${socket.id}`);
 
-  // Registrar usuario autenticado
-  socket.on('register', async ({ userId, token }) => {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
-      if (decoded.id !== userId) {
-        throw new Error('Token inválido');
-      }
 
-      socket.userId = userId;
-      console.log(`Usuario ${userId} registrado para llamadas`);
-      
-      // Obtener datos del usuario desde DB
-      const [user] = await pool.query('SELECT name FROM users WHERE id = ?', [userId]);
-      socket.userName = user[0]?.name || 'Usuario';
-
-    } catch (error) {
-      console.error('Error en registro Socket.io:', error);
-      socket.disconnect();
-    }
-  });
-
-  // Iniciar llamada
-  socket.on('start-call', async ({ callerId, calleeId }) => {
-    try {
-      // Verificar que ambos usuarios existen
-      const [caller] = await pool.query('SELECT id, name FROM users WHERE id = ?', [callerId]);
-      const [callee] = await pool.query('SELECT id FROM users WHERE id = ?', [calleeId]);
-
-      if (!caller.length || !callee.length) {
-        throw new Error('Usuario no encontrado');
-      }
-
-      activeCalls[callerId] = { 
-        calleeId, 
-        socketId: socket.id,
-        callerName: caller[0].name
-      };
-      
-      // Notificar al receptor
-      io.to(calleeId).emit('incoming-call', { 
-        callerId,
-        callerName: caller[0].name
-      });
-
-    } catch (error) {
-      console.error('Error al iniciar llamada:', error);
-      socket.emit('call-error', { message: error.message });
-    }
-  });
-
-  // Aceptar llamada
-  socket.on('accept-call', ({ callerId, calleeId }) => {
-    const call = activeCalls[callerId];
-    if (!call) return;
-
-    io.to(callerId).emit('call-accepted', { calleeId });
-    io.to(calleeId).emit('call-started', { callerId });
-  });
-
-  // Transmitir señal WebRTC
-  socket.on('webrtc-signal', ({ targetUserId, signal }) => {
-    socket.to(targetUserId).emit('webrtc-signal', { 
-      senderId: socket.userId, 
-      signal 
-    });
-  });
-
-  // Finalizar llamada
-  socket.on('end-call', ({ callerId }) => {
-    const call = activeCalls[callerId];
-    if (!call) return;
-
-    io.to(call.calleeId).emit('call-ended');
-    delete activeCalls[callerId];
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Cliente desconectado: ${socket.id}`);
-    // Limpiar llamadas si el usuario estaba en una
-    Object.keys(activeCalls).forEach(callerId => {
-      if (activeCalls[callerId].socketId === socket.id) {
-        io.to(activeCalls[callerId].calleeId).emit('call-ended');
-        delete activeCalls[callerId];
-      }
-    });
-  }); 
-});
 
 // Endpoint para obtener datos de llamada
 app.get('/api/call/user/:userId', async (req, res) => {
