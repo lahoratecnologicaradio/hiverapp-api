@@ -17,17 +17,16 @@ const app = express();
 const server = http.createServer(app);
 
 // Configuración de Socket.io
-/*const io = new Server(server, {
+const io = new Server(server, {
   cors: {
     origin: "*", // Ajusta en producción
     methods: ["GET", "POST"],
     credentials: true
   }
-});*/
+});
 
-
-// Almacén temporal de llamadas
-const activeCalls = {};
+// Almacén para conexiones activas
+const activeUsers = new Map(); // { userId → socketId }
 
 // Middlewares
 app.use(cors());
@@ -36,21 +35,80 @@ app.use(bodyParser.json());
 // Rutas
 app.use('/api/tutor', tutorRoutes);
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+// WebSocket Connection
+io.on('connection', (socket) => {
+  console.log('Nuevo cliente conectado:', socket.id);
+
+  // Registrar usuario cuando inicie sesión
+  socket.on('register-user', (userId) => {
+    activeUsers.set(userId, socket.id);
+    console.log(`Usuario ${userId} registrado con socket ${socket.id}`);
+    
+    // Actualizar en la base de datos
+    pool.query('UPDATE users SET socket_id = ?, last_online = NOW() WHERE id = ?', [socket.id, userId])
+      .catch(err => console.error('Error al actualizar socket_id:', err));
+  });
+
+  // Manejar llamadas entrantes
+  socket.on('call-user', async ({ callerId, targetUserId, offer }) => {
+    try {
+      const [target] = await pool.query(
+        'SELECT id, name, socket_id FROM users WHERE id = ?', 
+        [targetUserId]
+      );
+
+      if (target.length === 0) {
+        socket.emit('call-error', { message: 'Usuario no encontrado' });
+        return;
+      }
+
+      const targetSocketId = target[0].socket_id;
+      
+      if (targetSocketId && io.sockets.sockets.has(targetSocketId)) {
+        io.to(targetSocketId).emit('incoming-call', { 
+          callerId,
+          callerName: target[0].name,
+          offer 
+        });
+      } else {
+        socket.emit('call-error', { message: 'El usuario no está disponible' });
+      }
+    } catch (error) {
+      console.error('Error en call-user:', error);
+      socket.emit('call-error', { message: 'Error interno del servidor' });
+    }
+  });
+
+  // Manejar respuestas a llamadas
+  socket.on('answer-call', ({ to, answer }) => {
+    io.to(to).emit('call-answered', { answer });
+  });
+
+  // Manejar ICE Candidates
+  socket.on('ice-candidate', ({ to, candidate }) => {
+    io.to(to).emit('ice-candidate', { candidate });
+  });
+
+  // Limpieza al desconectar
+  socket.on('disconnect', () => {
+    activeUsers.forEach((value, key) => {
+      if (value === socket.id) {
+        activeUsers.delete(key);
+        // Marcar como offline en la base de datos
+        pool.query('UPDATE users SET socket_id = NULL WHERE id = ?', [key])
+          .catch(err => console.error('Error al actualizar estado:', err));
+      }
+    });
+    console.log('Cliente desconectado:', socket.id);
+  });
 });
 
-
-
-
-
-// Endpoint para obtener datos de llamada
+// Endpoints REST
 app.get('/api/call/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const [user] = await pool.query(
-      'SELECT id, name, image FROM users WHERE id = ?', 
+      'SELECT id, name, image, socket_id, last_online FROM users WHERE id = ?', 
       [userId]
     );
 
@@ -58,10 +116,15 @@ app.get('/api/call/user/:userId', async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    const isOnline = user[0].socket_id && 
+                    io.sockets.sockets.has(user[0].socket_id);
+
     res.json({
       id: user[0].id,
       name: user[0].name,
-      image: user[0].image
+      image: user[0].image,
+      isOnline,
+      lastOnline: user[0].last_online
     });
   } catch (error) {
     console.error('Error obteniendo datos de usuario:', error);
@@ -69,13 +132,10 @@ app.get('/api/call/user/:userId', async (req, res) => {
   }
 });
 
-
-
 app.post('/api/register', async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
-    // Verificar si el usuario ya existe
     const [existingUser] = await pool.query(
       'SELECT * FROM users WHERE email = ?', 
       [email]
@@ -87,17 +147,14 @@ app.post('/api/register', async (req, res) => {
       });
     }
 
-    // Generar hash de la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Guardar en la base de datos
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [name, email, hashedPassword, role || 'user'] // Valor por defecto 'user' si no se especifica
+      [name, email, hashedPassword, role || 'user']
     );
 
-    // Respuesta compatible con el frontend
     res.status(201).json({ 
       success: true,
       message: 'Usuario registrado exitosamente',
@@ -114,7 +171,7 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
-      error: error.message // Opcional: enviar detalles del error
+      error: error.message
     });
   }
 });
@@ -123,52 +180,44 @@ app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-
-
-    //encryptPasswords();
-    
-    // Buscar usuario en la base de datos usando el pool
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
    
-
-    // Verificar si el usuario existe
     if (rows.length === 0) {
       return res.status(400).json({ message: 'Usuario no encontrado.' });
     }
 
-    const user = rows[0]; // Obtener el primer resultado
-
-    // Verificar la contraseña
+    const user = rows[0];
     const isMatch = await bcrypt.compare(password, user.password);  
 
     if (!isMatch) {
       return res.status(400).json({ message: 'Contraseña incorrecta.' });
     }
 
-    // Generar token JWT 
     const token = jwt.sign({ id: user.id }, JWT_SECRET);
 
-    // Enviar respuesta con el token
-    res.json({ token, name: user.name, email: user.email, role: user.role, id: user.id });
+    res.json({ 
+      token, 
+      name: user.name, 
+      email: user.email, 
+      role: user.role, 
+      id: user.id 
+    });
   } catch (error) {
     console.error('Error en el inicio de sesión:', error);
     res.status(500).json({ message: error });
   }
 });
 
-// Ruta para eliminar un usuario por ID
 app.delete('/api/users/:id', async (req, res) => {
-  const { id } = req.params; // Obtener el ID del usuario de los parámetros de la URL
+  const { id } = req.params;
 
   try {
-    // Verificar si el usuario existe
     const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
 
     if (user.length === 0) {
       return res.status(404).json({ message: 'Usuario no encontrado.' });
     }
 
-    // Eliminar el usuario de la base de datos
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
 
     res.json({ message: 'Usuario eliminado exitosamente.' });
@@ -177,7 +226,6 @@ app.delete('/api/users/:id', async (req, res) => {
     res.status(500).json({ message: 'Error interno del servidor.' });
   }
 });
-
 
 app.post('/send-verification', async (req, res) => {
   const { phone } = req.body;
@@ -192,29 +240,7 @@ app.post('/send-verification', async (req, res) => {
   }
 });
 
-
-async function encryptPasswords() {
-  try {
-    // Obtener los usuarios con contraseñas en texto plano
-    const [users] = await pool.query('SELECT id, password FROM users');
-
-    for (let user of users) {
-      if (!user.password.startsWith('$2a$')) { // Evita re-encriptar si ya están en bcrypt
-        const hashedPassword = await bcrypt.hash(user.password, 10);
-
-        // Actualizar la contraseña en la base de datos
-        await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-
-        console.log(`Contraseña del usuario ID ${user.id} encriptada.`);
-      }
-    }
-
-    console.log('Todas las contraseñas han sido encriptadas.');
-  } catch (error) {
-    console.error('Error al encriptar contraseñas:', error);
-  } finally {
-    pool.end();
-    //pool.end();
-  }
-}
-
+// Iniciar servidor
+server.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
