@@ -212,7 +212,7 @@ app.post('/api/loginVA', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE cedula = ?', [cedula]);
+    const [rows] = await pool.query('SELECT * FROM usersVA WHERE cedula = ?', [cedula]);
    
     if (rows.length === 0) {
       return res.status(400).json({ message: 'Usuario no encontrado.' });
