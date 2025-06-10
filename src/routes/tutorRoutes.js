@@ -5,7 +5,7 @@ import  {getTutorDetails, getAllUsers, getAllTutors, getTutorById}  from '../con
 import StudentsController from '../controllers/StudentsController.js';
 import {UploadController} from '../controllers/UploadController.js';
 import { getCallUserData } from '../controllers/callController.js';
-import { UsersVAController } from '../controllers/UsersVAController.js';
+import { getAllUsers }  from '../controllers/UsersVAController.js';
 
 const router = express.Router();
 const upload = multer(); 
