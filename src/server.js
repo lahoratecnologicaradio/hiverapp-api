@@ -209,7 +209,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/loginVA', async (req, res) => {
-  const { email, password } = req.body;
+  const { cedula, password } = req.body;
 
   try {
     const [rows] = await pool.query('SELECT * FROM usersVA WHERE cedula = ?', [cedula]);
