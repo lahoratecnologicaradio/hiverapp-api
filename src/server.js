@@ -208,6 +208,39 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.post('/api/loginVA', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE cedula = ?', [cedula]);
+   
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'Usuario no encontrado.' });
+    }
+
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);  
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Contraseña incorrecta.' });
+    }
+
+    const token = jwt.sign({ id: user.id }, JWT_SECRET);
+
+    res.json({ 
+      token, 
+      name: user.name, 
+      cedula: user.cedula,
+      celular:  user.celular,
+      role: user.role, 
+      id: user.id
+    });
+  } catch (error) {
+    console.error('Error en el inicio de sesión:', error);
+    res.status(500).json({ message: error });
+  }
+});
+
 app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
 
