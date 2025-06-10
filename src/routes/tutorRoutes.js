@@ -5,7 +5,7 @@ import  {getTutorDetails, getAllUsers, getAllTutors, getTutorById}  from '../con
 import StudentsController from '../controllers/StudentsController.js';
 import {UploadController} from '../controllers/UploadController.js';
 import { getCallUserData } from '../controllers/callController.js';
-import { getAllUsers }  from '../controllers/UsersVAController.js';
+import  UsersVAController  from '../controllers/UsersVAController.js';
 
 const router = express.Router();
 const upload = multer(); 
@@ -29,7 +29,12 @@ router.get('/tutors/:tutorId', authMiddleware, getTutorById);
 
 router.get('/students', StudentsController.getAllStudents);
 
+// Rutas para guardar el formulario de VA
+
 router.get('/usersVA', UsersVAController.getAllUsers);
+
+// Ruta para guardar el formulario
+router.post('/formularioVA', UsersVAController.saveFormData);
 
 
 router.get('/filtered', StudentsController.getStudentsWithFilters);
