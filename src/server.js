@@ -208,6 +208,51 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+
+app.post('/api/registerVA', async (req, res) => {
+  const { nombre, cedula, password, role } = req.body;
+
+  try {
+    const [existingUser] = await pool.query(
+      'SELECT * FROM usersVA WHERE cedula = ?', 
+      [cedula]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(400).json({ 
+        message: 'El correo electrónico ya está registrado' 
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const [result] = await pool.query(
+      'INSERT INTO users (nombre, cedula, password, role, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [nombre, cedula, hashedPassword, role || 'user']
+    );
+
+    res.status(201).json({ 
+      success: true,
+      message: 'Usuario registrado exitosamente',
+      user: {
+        id: result.insertId,
+        nombre,
+        cedula,
+        role: role || 'user'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error en el registro:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+});
+
 app.post('/api/loginVA', async (req, res) => {
   const { cedula, password } = req.body;
 
