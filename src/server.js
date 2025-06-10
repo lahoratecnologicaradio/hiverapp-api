@@ -264,7 +264,7 @@ app.post('/api/loginVA', async (req, res) => {
     }
 
     const user = rows[0];
-    const isMatch = await bcrypt.compare(password, user.pass);  
+    const isMatch = await bcrypt.compare(password, user.password);  
 
     if (!isMatch) {
       return res.status(400).json({ message: 'Contraseña incorrecta.' });
