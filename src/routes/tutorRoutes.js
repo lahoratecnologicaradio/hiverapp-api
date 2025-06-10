@@ -5,6 +5,7 @@ import  {getTutorDetails, getAllUsers, getAllTutors, getTutorById}  from '../con
 import StudentsController from '../controllers/StudentsController.js';
 import {UploadController} from '../controllers/UploadController.js';
 import { getCallUserData } from '../controllers/callController.js';
+import { UsersVAController } from '../controllers/UsersVAController.js';
 
 const router = express.Router();
 const upload = multer(); 
@@ -27,6 +28,8 @@ router.get('/tutors/:tutorId', authMiddleware, getTutorById);
 
 
 router.get('/students', StudentsController.getAllStudents);
+
+router.get('/usersVA', UsersVAController.getAllUsers);
 
 
 router.get('/filtered', StudentsController.getStudentsWithFilters);
