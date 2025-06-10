@@ -126,7 +126,17 @@ getAllUsers: async (req, res) => {
     console.error('Error obteniendo usuarios:', error);
     res.status(500).json({ message: 'Error interno del servidor.' });
   }
-}
+},
+
+getForm: async (req, res) => {
+    try {
+      const [users] = await pool.query('SELECT * FROM formulario_voz_activa');
+      res.json(users); // Devuelve todos los usuarios en formato JSON
+    } catch (error) {
+      console.error('Error obteniendo usuarios:', error);
+      res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+  }
 
 }
 
