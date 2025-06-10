@@ -118,15 +118,27 @@ saveFormData: async (req, res) => {
     }
   },
 
-getAllUsers: async (req, res) => {
-  try {
-    const [users] = await pool.query('SELECT * FROM usersVA');
-    res.json(users); // Devuelve todos los usuarios en formato JSON
-  } catch (error) {
-    console.error('Error obteniendo usuarios:', error);
-    res.status(500).json({ message: 'Error interno del servidor.' });
-  }
-},
+  getUserByCedula: async (req, res) => {
+    try {
+      const { cedula } = req.body;
+  
+      if (!cedula) {
+        return res.status(400).json({ message: 'La cédula es requerida.' });
+      }
+  
+      const [users] = await pool.query('SELECT * FROM usersVA WHERE cedula = ?', [cedula]);
+  
+      if (users.length === 0) {
+        return res.status(404).json({ message: 'Usuario no encontrado.' });
+      }
+  
+      res.json(users[0]); // Devuelve el primer usuario encontrado
+    } catch (error) {
+      console.error('Error obteniendo usuario por cédula:', error);
+      res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+  },
+  
 
 getForm: async (req, res) => {
     try {
