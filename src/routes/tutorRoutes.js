@@ -31,7 +31,7 @@ router.get('/students', StudentsController.getAllStudents);
 
 // Rutas para guardar el formulario de VA
 
-router.get('/userVA', UsersVAController.getUserByCedula);
+router.post('/userVA', UsersVAController.getUserByCedula);
 
 // Ruta para guardar el formulario
 router.post('/formularioVA', UsersVAController.saveFormData);
