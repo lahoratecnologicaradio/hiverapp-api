@@ -220,7 +220,7 @@ app.post('/api/registerVA', async (req, res) => {
 
     if (existingUser.length > 0) {
       return res.status(400).json({ 
-        message: 'El correo electrónico ya está registrado' 
+        message: 'La cédula  ya está registrada' 
       });
     }
 
