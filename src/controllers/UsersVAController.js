@@ -53,8 +53,8 @@ saveFormData: async (req, res) => {
       
       const userParams = [
         nombre_completo,
-        hashedPassword,
         cedula, // Usamos la cédula como password
+        hashedPassword,
         'user', // Rol fijo 'user'
         new Date() // Fecha actual
       ];
