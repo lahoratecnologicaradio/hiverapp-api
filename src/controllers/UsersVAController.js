@@ -164,6 +164,7 @@ saveFormData: async (req, res) => {
       res.json(rows);
     } catch (error) {
       console.error('Error obteniendo formularios:', error);
+      console.error('Error obteniendo formularios:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
   };
