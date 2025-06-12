@@ -39,6 +39,9 @@ router.post('/formularioVA', UsersVAController.saveFormData);
 // Ruta get para obtener datos  del formulario
 router.get('/formularioVA', UsersVAController.getForm);
 
+router.post('/cambiar-passwordVA', UsersVAController.cambiarPassword);
+
+
 
 router.get('/filtered', StudentsController.getStudentsWithFilters);
 
