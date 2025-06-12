@@ -40,6 +40,9 @@ saveFormData: async (req, res) => {
       } = req.body;
   
       // 1. Primero guardar en la tabla usersVA
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(cedula, salt);
+
       const userQuery = `
         INSERT INTO usersVA (
           nombre, cedula, password, role, created_at
@@ -48,7 +51,7 @@ saveFormData: async (req, res) => {
       
       const userParams = [
         nombre_completo,
-        cedula,
+        hashedPassword,
         cedula, // Usamos la cédula como password
         'user', // Rol fijo 'user'
         new Date() // Fecha actual
