@@ -6,7 +6,7 @@ import Tutor from '../models/Tutor.js';
 
 const UsersVAController = {
 
-/*saveFormData: async (req, res) => {
+saveFormData: async (req, res) => {
     let connection;
     try {
       // Obtener conexión del pool para transacción
@@ -89,89 +89,6 @@ const UsersVAController = {
         userId: userResult.insertId,
         formId: formResult.insertId
       });
-  
-    } catch (error) {
-      // Revertir la transacción en caso de error
-      if (connection) await connection.rollback();
-      
-      console.error('Error al guardar los datos:', error);
-      
-      // Manejar errores específicos
-      let errorMessage = 'Error al guardar los datos';
-      if (error.code === 'ER_DUP_ENTRY') {
-        if (error.message.includes('usersVA.cedula')) {
-          errorMessage = 'La cédula ya está registrada como usuario';
-        } else {
-          errorMessage = 'La cédula ya tiene un formulario registrado';
-        }
-        return res.status(400).json({ success: false, message: errorMessage });
-      }
-      
-      res.status(500).json({
-        success: false,
-        message: errorMessage,
-        error: error.message
-      });
-    } finally {
-      // Liberar la conexión
-      if (connection) connection.release();
-    }
-  },*/
-
-
-  saveFormData: async (req, res) => {
-    let connection;
-    try {
-      // Obtener conexión del pool para transacción
-      connection = await pool.getConnection();
-      await connection.beginTransaction();
-  
-      // Obtener datos del cuerpo de la solicitud
-      const {
-        nombre_completo,
-        telefono,
-        direccion,
-        cedula,
-        email,
-        provincia,
-        municipio,
-        sector,
-        colegio_electoral,
-        profesion_ocupacion,
-        participacion_previas,
-        expectativas,
-        rol_liderazgo,
-        participar_comites,
-        disponibilidad_viajar,
-        nivel_academico,
-        como_se_entero,
-        habilidades,
-        otro_nivel_academico,
-        otro_como_se_entero,
-        otra_habilidad,
-        registrador_id
-      } = req.body;
-  
-      // 1. Primero guardar en la tabla usersVA
-      const userQuery = `
-        INSERT INTO usersVA (
-          nombre, cedula, password, role, created_at
-        ) VALUES (?, ?, ?, ?, ?)
-      `;
-      
-      const userParams = [
-        nombre_completo,
-        cedula,
-        cedula, // Usamos la cédula como password
-        'user', // Rol fijo 'user'
-        new Date() // Fecha actual
-      ];
-  
-      const [userResult] = await connection.query(userQuery, userParams);
-  
-   
-  
-   
   
     } catch (error) {
       // Revertir la transacción en caso de error
