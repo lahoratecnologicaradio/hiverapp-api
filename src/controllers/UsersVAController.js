@@ -63,7 +63,7 @@ saveFormData: async (req, res) => {
           municipio, sector, colegio_electoral, profesion_ocupacion,
           participacion_previas, expectativas, rol_liderazgo, participar_comites,
           disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
-          otro_nivel_academico, otro_como_se_entero, otra_habilidad, registrador_id,  ip_registro
+          otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id,  ip_registro
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
   
@@ -75,7 +75,7 @@ saveFormData: async (req, res) => {
         JSON.stringify(nivel_academico), 
         JSON.stringify(como_se_entero), 
         JSON.stringify(habilidades),
-        otro_nivel_academico, otro_como_se_entero, otra_habilidad, registrador_id, '192'
+        otro_nivel_academico, otro_como_se_entero, otra_habilidad,  new Date() , registrador_id, '192'
       ];
   
       const [formResult] = await connection.query(formQuery, formParams);
