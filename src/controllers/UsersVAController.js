@@ -167,7 +167,7 @@ saveFormData: async (req, res) => {
       console.error('Error obteniendo formularios:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
-  };
+  },
   
 
   cambiarPassword:async (req, res) => {
