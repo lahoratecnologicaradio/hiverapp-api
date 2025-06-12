@@ -147,34 +147,26 @@ saveFormData: async (req, res) => {
 
   getForm: async (req, res) => {
     try {
-      // Obtener todos los formularios
-      const [formularios] = await pool.query('SELECT * FROM formulario_voz_activa');
-  
-      // Contar cuántas veces cada ID aparece como registrador_id
-      const [conteos] = await pool.query(`
-        SELECT registrador_id, COUNT(*) AS personas_registradas
-        FROM formulario_voz_activa
-        GROUP BY registrador_id
+      const [rows] = await pool.query(`
+        SELECT  f.*,
+                COALESCE(c.personas_registradas, 0) AS personas_registradas
+        FROM    formulario_voz_activa AS f
+        LEFT JOIN (
+            SELECT  registrador_id,
+                    COUNT(*) AS personas_registradas
+            FROM    formulario_voz_activa
+            WHERE   registrador_id IS NOT NULL
+            GROUP BY registrador_id
+        ) AS c  ON f.id = c.registrador_id
+        ORDER BY f.id;
       `);
   
-      // Crear un mapa de conteo: { registrador_id: cantidad }
-      const conteoMap = {};
-      conteos.forEach(({ registrador_id, personas_registradas }) => {
-        conteoMap[registrador_id] = personas_registradas;
-      });
-  
-      // Añadir personas_registradas a cada formulario
-      const resultado = formularios.map(persona => ({
-        ...persona,
-        personas_registradas: conteoMap[persona.id] || 0
-      }));
-  
-      res.json(resultado);
+      res.json(rows);
     } catch (error) {
       console.error('Error obteniendo formularios:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
-  }
+  };
   
 
  // cambiarPassword:
