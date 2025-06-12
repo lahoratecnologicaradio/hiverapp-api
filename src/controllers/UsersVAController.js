@@ -148,26 +148,22 @@ saveFormData: async (req, res) => {
   getForm: async (req, res) => {
     try {
       const [rows] = await pool.query(`
-        SELECT  f.*,
-                COALESCE(c.personas_registradas, 0) AS personas_registradas
-        FROM    formulario_voz_activa AS f
-        LEFT JOIN (
-            SELECT  registrador_id,
-                    COUNT(*) AS personas_registradas
-            FROM    formulario_voz_activa
-            WHERE   registrador_id IS NOT NULL
-            GROUP BY registrador_id
-        ) AS c  ON f.id = c.registrador_id
-        ORDER BY f.id;
+        SELECT  u.*, 
+                COALESCE(COUNT(f.id), 0) AS personas_registradas
+        FROM    usersVA AS u
+        LEFT JOIN formulario_voz_activa AS f 
+          ON f.registrador_id = u.id
+        GROUP BY u.id
+        ORDER BY u.id;
       `);
   
       res.json(rows);
     } catch (error) {
-      console.error('Error obteniendo formularios:', error);
-      console.error('Error obteniendo formularios:', error);
+      console.error('Error obteniendo datos:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
-  },
+  };
+  
   
 
   cambiarPassword:async (req, res) => {
