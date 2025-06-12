@@ -1,6 +1,8 @@
 import mysql from 'mysql2';
 import {pool} from '../../db.js'; 
 import Tutor from '../models/Tutor.js';
+import bcrypt from 'bcryptjs';
+
 
 
 
