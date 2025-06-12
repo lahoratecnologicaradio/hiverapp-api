@@ -161,13 +161,11 @@ saveFormData: async (req, res) => {
             ON f2.registrador_id = u.id
           GROUP BY u.cedula
         ) AS r
-          ON f.cedula = r.cedula_registrador
+          ON f.cedula COLLATE utf8mb4_unicode_ci = r.cedula_registrador COLLATE utf8mb4_unicode_ci
       `);
-      
   
       res.json(rows);
     } catch (error) {
-      console.error('Error obteniendo datos:', error);
       console.error('Error obteniendo datos:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
