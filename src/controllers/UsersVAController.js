@@ -169,8 +169,8 @@ saveFormData: async (req, res) => {
   };
   
 
- // cambiarPassword:
-
+  cambiarPassword:async (req, res) => {
+  }
 }
 
 
