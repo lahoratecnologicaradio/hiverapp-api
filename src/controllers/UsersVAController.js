@@ -148,14 +148,22 @@ saveFormData: async (req, res) => {
   getForm: async (req, res) => {
     try {
       const [rows] = await pool.query(`
-        SELECT  u.*, 
-                COALESCE(COUNT(f.id), 0) AS personas_registradas
-        FROM    usersVA AS u
-        LEFT JOIN formulario_voz_activa AS f 
-          ON f.registrador_id = u.id
-        GROUP BY u.id
-        ORDER BY u.id;
+        SELECT 
+          f.*, 
+          COALESCE(r.cantidad, 0) AS personas_registradas
+        FROM formulario_voz_activa AS f
+        LEFT JOIN (
+          SELECT 
+            u.cedula AS cedula_registrador,
+            COUNT(f2.id) AS cantidad
+          FROM usersVA u
+          LEFT JOIN formulario_voz_activa f2 
+            ON f2.registrador_id = u.id
+          GROUP BY u.cedula
+        ) AS r
+          ON f.cedula = r.cedula_registrador
       `);
+      
   
       res.json(rows);
     } catch (error) {
