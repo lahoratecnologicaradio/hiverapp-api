@@ -58,14 +58,14 @@ saveFormData: async (req, res) => {
   
       // 2. Luego guardar en formulario_voz_activa
       const formQuery = `
-        INSERT INTO formulario_voz_activa (
-          nombre_completo, telefono, direccion, cedula, email, provincia,
-          municipio, sector, colegio_electoral, profesion_ocupacion,
-          participacion_previas, expectativas, rol_liderazgo, participar_comites,
-          disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
-          otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id,  ip_registro
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+      INSERT INTO formulario_voz_activa (
+        nombre_completo, telefono, direccion, cedula, email, provincia,
+        municipio, sector, colegio_electoral, profesion_ocupacion,
+        participacion_previas, expectativas, rol_liderazgo, participar_comites,
+        disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
+        otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id, ip_registro
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
   
       const formParams = [
         nombre_completo, telefono, direccion, cedula, email, provincia,
