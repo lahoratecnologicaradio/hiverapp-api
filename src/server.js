@@ -228,9 +228,10 @@ app.post('/api/registerVA', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const [result] = await pool.query(
-      'INSERT INTO usersVA (nombre, cedula, password, role, created_at) VALUES (?, ?, ?, ?,?,?, NOW())',
-      [nombre, cedula, hashedPassword, role || 'user',token_registrado ,registrado_por]
+      'INSERT INTO usersVA (nombre, cedula, password, role, token_registrado, registrado_por, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+      [nombre, cedula, hashedPassword, role || 'user', token_registrado, registrado_por]
     );
+    
 
     res.status(201).json({ 
       success: true,
