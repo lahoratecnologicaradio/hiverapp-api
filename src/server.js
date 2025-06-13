@@ -241,6 +241,7 @@ app.post('/api/registerVA', async (req, res) => {
         cedula,
         role: role || 'user',
         token_registrado,
+        registrado_por,
         registrado_por
       }
     });
