@@ -39,6 +39,11 @@ router.post('/formularioVA', UsersVAController.saveFormData);
 // Ruta get para obtener datos  del formulario
 router.get('/formularioVA', UsersVAController.getForm);
 
+
+// Ruta get para obtener información del reclutador basado en el token
+router.get('/getReclutadorByTokenVA', UsersVAController.getReclutadorByToken);
+
+
 router.post('/cambiar-passwordVA', UsersVAController.cambiarPassword);
 
 
