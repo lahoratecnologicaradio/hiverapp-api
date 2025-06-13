@@ -281,8 +281,8 @@ app.post('/api/loginVA', async (req, res) => {
       celular:  user.celular,
       role: user.role, 
       id: user.id,
-      token_registrado,
-      registrado_por
+      token_registrado: user.token_registrado,
+      registrado_por:user.registrado_por
     });
   } catch (error) {
     console.error('Error en el inicio de sesión:', error);
