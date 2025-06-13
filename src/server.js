@@ -210,7 +210,7 @@ app.post('/api/login', async (req, res) => {
 
 
 app.post('/api/registerVA', async (req, res) => {
-  const { nombre, cedula, password, role } = req.body;
+  const { nombre, cedula, password, role, token_registrado, registrado_por } = req.body;
 
   try {
     const [existingUser] = await pool.query(
@@ -220,7 +220,7 @@ app.post('/api/registerVA', async (req, res) => {
 
     if (existingUser.length > 0) {
       return res.status(400).json({ 
-        message: 'La cédula  ya está registrada' 
+        message: 'La cédula ya está registrada' 
       });
     }
 
@@ -228,8 +228,8 @@ app.post('/api/registerVA', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const [result] = await pool.query(
-      'INSERT INTO usersVA (nombre, cedula, password, role, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [nombre, cedula, hashedPassword, role || 'user']
+      'INSERT INTO usersVA (nombre, cedula, password, role, created_at) VALUES (?, ?, ?, ?,?,? NOW())',
+      [nombre, cedula, hashedPassword, role || 'user',token_registrado ,registrado_por]
     );
 
     res.status(201).json({ 
@@ -239,7 +239,9 @@ app.post('/api/registerVA', async (req, res) => {
         id: result.insertId,
         nombre,
         cedula,
-        role: role || 'user'
+        role: role || 'user',
+        token_registrado,
+        registrado_por
       }
     });
     
@@ -278,7 +280,9 @@ app.post('/api/loginVA', async (req, res) => {
       cedula: user.cedula,
       celular:  user.celular,
       role: user.role, 
-      id: user.id
+      id: user.id,
+      token_registrado,
+      registrado_por
     });
   } catch (error) {
     console.error('Error en el inicio de sesión:', error);

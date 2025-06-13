@@ -170,6 +170,57 @@ saveFormData: async (req, res) => {
       res.status(500).json({ message: 'Error interno del servidor.' });
     }
   },
+
+  getReclutadorByToken: async (req, res) => {
+    let connection;
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'El token es requerido' 
+            });
+        }
+
+        connection = await pool.getConnection();
+
+        // Buscar el usuario por el token_registrado
+        const [users] = await connection.query(
+            'SELECT id, nombre, cedula, registrado_por FROM usersVA WHERE token_registrado = ?',
+            [token]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'No se encontró ningún reclutador con ese token' 
+            });
+        }
+
+        const user = users[0];
+
+        res.json({
+            success: true,
+            data: {
+                id: user.id,
+                nombre: user.nombre,
+                cedula: user.cedula,
+                registrado_por: user.registrado_por
+            }
+        });
+
+    } catch (error) {
+        console.error('Error al buscar reclutador por token:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message 
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+},
   
   
 
