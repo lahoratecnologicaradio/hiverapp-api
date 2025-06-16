@@ -154,7 +154,6 @@ const UsersVAController = {
         f.celular,
         f.registrador_id,
         r.nombre AS nombre_registrador,
-        f.created_at AS formulario_created_at
     FROM usersVA u
     LEFT JOIN formulario_voz_activa f 
         ON f.usersVA_id = u.id
