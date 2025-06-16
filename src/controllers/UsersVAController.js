@@ -142,74 +142,104 @@ const UsersVAController = {
     try {
       const [rows] = await pool.query(`
         SELECT 
-        u.id,
-        f.nombre_completo,
-        u.cedula,
-        u.role,
-        u.created_at,
-        COUNT(f.id) AS veces_en_formulario,
-        f.id AS formulario_id,
-        f.direccion, 
-        f.telefono,
-        f.celular,
-        f.registrador_id,
-        r.nombre AS nombre_registrador
-    FROM usersVA u
-    LEFT JOIN formulario_voz_activa f 
-        ON CAST(f.usersVA_id AS UNSIGNED) = u.id
-    LEFT JOIN usersVA r
-        ON f.registrador_id = r.id
-    GROUP BY 
-        u.id, f.nombre_completo, u.cedula, u.role, u.created_at, 
-        f.id, f.direccion, f.telefono, f.celular, f.registrador_id, 
-        r.nombre`);
+          u.id AS user_id,
+          u.nombre AS user_nombre,
+          u.cedula AS user_cedula,
+          u.role AS user_role,
+          u.created_at AS user_created_at,
+          COUNT(DISTINCT f1.id) AS formularios_registrados,
+          COUNT(DISTINCT f2.id) AS veces_registrado,
+          (
+            SELECT JSON_ARRAYAGG(
+              JSON_OBJECT(
+                'id', f.id,
+                'nombre_completo', f.nombre_completo,
+                'telefono', f.telefono,
+                'celular', f.celular,
+                'direccion', f.direccion,
+                'email', f.email,
+                'provincia', f.provincia,
+                'municipio', f.municipio,
+                'sector', f.sector,
+                'colegio_electoral', f.colegio_electoral,
+                'profesion_ocupacion', f.profesion_ocupacion,
+                'participacion_previas', f.participacion_previas,
+                'expectativas', f.expectativas,
+                'rol_liderazgo', f.rol_liderazgo,
+                'participar_comites', f.participar_comites,
+                'disponibilidad_viajar', f.disponibilidad_viajar,
+                'nivel_academico', f.nivel_academico,
+                'como_se_entero', f.como_se_entero,
+                'habilidades', f.habilidades,
+                'otro_nivel_academico', f.otro_nivel_academico,
+                'otro_como_se_entero', f.otro_como_se_entero,
+                'otra_habilidad', f.otra_habilidad,
+                'fecha_registro', f.fecha_registro,
+                'registrador_id', f.registrador_id,
+                'usersVA_id', f.usersVA_id,
+                'ip_registro', f.ip_registro
+              )
+            )
+            FROM formulario_voz_activa f
+            WHERE f.registrador_id = u.id
+          ) AS formularios_como_registrador,
+          (
+            SELECT JSON_ARRAYAGG(
+              JSON_OBJECT(
+                'id', f.id,
+                'nombre_completo', f.nombre_completo,
+                'telefono', f.telefono,
+                'celular', f.celular,
+                'direccion', f.direccion,
+                'email', f.email,
+                'provincia', f.provincia,
+                'municipio', f.municipio,
+                'sector', f.sector,
+                'fecha_registro', f.fecha_registro,
+                'registrador_id', f.registrador_id,
+                'usersVA_id', f.usersVA_id
+              )
+            )
+            FROM formulario_voz_activa f
+            WHERE CAST(f.usersVA_id AS UNSIGNED) = u.id
+          ) AS formularios_como_usuario
+        FROM 
+          usersVA u
+        LEFT JOIN 
+          formulario_voz_activa f1 ON f1.registrador_id = u.id
+        LEFT JOIN 
+          formulario_voz_activa f2 ON CAST(f2.usersVA_id AS UNSIGNED) = u.id
+        GROUP BY 
+          u.id, u.nombre, u.cedula, u.role, u.created_at
+        ORDER BY 
+          formularios_registrados DESC
+      `);
 
-      // Agrupar los resultados por usuario (ya que un usuario puede tener múltiples formularios)
-      const groupedResults = rows.reduce((acc, row) => {
-        const existingUser = acc.find(user => user.id === row.id);
-        
-        if (existingUser) {
-          // Si el usuario ya existe en el acumulador, agregamos el formulario
-          if (row.usersVA_id) { // Verificar que existe un formulario relacionado
-            existingUser.formularios = existingUser.formularios || [];
-            existingUser.formularios.push({
-              id: row.f_id, // Asumiendo que el formulario tiene un campo 'id' (ajustar según tu estructura)
-              nombre_completo: row.nombre_completo,
-              cedula: row.f_cedula, // Prefijado con 'f_' para diferenciar
-              // Agrega aquí otros campos del formulario que necesites
-            });
-          }
-        } else {
-          // Si es un nuevo usuario, lo agregamos al acumulador
-          const newUser = {
-            id: row.id,
-            nombre: row.nombre,
-            cedula: row.cedula,
-            role: row.role,
-            status: row.status,
-            personas_registradas: row.personas_registradas,
-            formularios: []
-          };
-          
-          if (row.usersVA_id) { // Verificar que existe un formulario relacionado
-            newUser.formularios.push({
-              id: row.f_id,
-              nombre_completo: row.nombre_completo,
-              cedula: row.f_cedula,
-              // Agrega aquí otros campos del formulario que necesites
-            });
-          }
-          
-          acc.push(newUser);
-        }
-        
-        return acc;
-      }, []);
+      // Formatear los resultados
+      const formattedResults = rows.map(row => ({
+        id: row.user_id,
+        nombre: row.user_nombre,
+        cedula: row.user_cedula,
+        role: row.user_role,
+        created_at: row.user_created_at,
+        formularios_registrados: row.formularios_registrados,
+        veces_registrado: row.veces_registrado,
+        formularios_como_registrador: row.formularios_como_registrador 
+          ? JSON.parse(row.formularios_como_registrador) 
+          : [],
+        formularios_como_usuario: row.formularios_como_usuario 
+          ? JSON.parse(row.formularios_como_usuario) 
+          : []
+      }));
 
-      res.json(groupedResults);
+      res.json(formattedResults);
     } catch (error) {
       console.error('Error obteniendo datos:', error);
-      res.status(500).json({ message: 'Error interno del servidor.' });
+      res.status(500).json({ 
+        success: false,
+        message: 'Error interno del servidor al obtener los formularios',
+        error: error.message 
+      });
     }
   },
 
