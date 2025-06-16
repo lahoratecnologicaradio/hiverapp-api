@@ -142,16 +142,20 @@ const UsersVAController = {
     try {
       const [rows] = await pool.query(`
         SELECT 
-          u.*,
-          f.*,
-          COALESCE((
-            SELECT COUNT(*) 
-            FROM formulario_voz_activa 
-            WHERE registrador_id = u.id
-          ), 0) AS personas_registradas
-        FROM usersVA u
-        LEFT JOIN formulario_voz_activa f 
-          ON f.usersVA_id = u.id
+        u.id,
+        u.nombre,
+        u.cedula,
+        u.role,
+        u.created_at,
+        COUNT(f.id) AS veces_en_formulario,
+        f.id AS formulario_id,
+        f.descripcion,
+        f.created_at AS formulario_created_at
+    FROM usersVA u
+    LEFT JOIN formulario_voz_activa f 
+        ON f.usersVA_id = u.id
+    GROUP BY u.id, u.nombre, u.cedula, u.role, u.created_at, f.id, f.descripcion, f.created_at
+
       `);
 
       // Agrupar los resultados por usuario (ya que un usuario puede tener múltiples formularios)
