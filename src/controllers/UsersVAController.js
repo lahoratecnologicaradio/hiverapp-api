@@ -150,41 +150,7 @@ const UsersVAController = {
           COUNT(DISTINCT f1.id) AS formularios_registrados,
           COUNT(DISTINCT f2.id) AS veces_registrado,
           (
-            SELECT JSON_ARRAYAGG(
-              JSON_OBJECT(
-                'id', f.id,
-                'nombre_completo', f.nombre_completo,
-                'telefono', f.telefono,
-                'celular', f.celular,
-                'direccion', f.direccion,
-                'email', f.email,
-                'provincia', f.provincia,
-                'municipio', f.municipio,
-                'sector', f.sector,
-                'colegio_electoral', f.colegio_electoral,
-                'profesion_ocupacion', f.profesion_ocupacion,
-                'participacion_previas', f.participacion_previas,
-                'expectativas', f.expectativas,
-                'rol_liderazgo', f.rol_liderazgo,
-                'participar_comites', f.participar_comites,
-                'disponibilidad_viajar', f.disponibilidad_viajar,
-                'nivel_academico', f.nivel_academico,
-                'como_se_entero', f.como_se_entero,
-                'habilidades', f.habilidades,
-                'otro_nivel_academico', f.otro_nivel_academico,
-                'otro_como_se_entero', f.otro_como_se_entero,
-                'otra_habilidad', f.otra_habilidad,
-                'fecha_registro', f.fecha_registro,
-                'registrador_id', f.registrador_id,
-                'usersVA_id', f.usersVA_id,
-                'ip_registro', f.ip_registro
-              )
-            )
-            FROM formulario_voz_activa f
-            WHERE f.registrador_id = u.id
-          ) AS formularios_como_registrador,
-          (
-            SELECT JSON_ARRAYAGG(
+            SELECT IFNULL(JSON_ARRAYAGG(
               JSON_OBJECT(
                 'id', f.id,
                 'nombre_completo', f.nombre_completo,
@@ -199,7 +165,27 @@ const UsersVAController = {
                 'registrador_id', f.registrador_id,
                 'usersVA_id', f.usersVA_id
               )
-            )
+            ), JSON_ARRAY()) 
+            FROM formulario_voz_activa f
+            WHERE f.registrador_id = u.id
+          ) AS formularios_como_registrador,
+          (
+            SELECT IFNULL(JSON_ARRAYAGG(
+              JSON_OBJECT(
+                'id', f.id,
+                'nombre_completo', f.nombre_completo,
+                'telefono', f.telefono,
+                'celular', f.celular,
+                'direccion', f.direccion,
+                'email', f.email,
+                'provincia', f.provincia,
+                'municipio', f.municipio,
+                'sector', f.sector,
+                'fecha_registro', f.fecha_registro,
+                'registrador_id', f.registrador_id,
+                'usersVA_id', f.usersVA_id
+              )
+            ), JSON_ARRAY())
             FROM formulario_voz_activa f
             WHERE CAST(f.usersVA_id AS UNSIGNED) = u.id
           ) AS formularios_como_usuario
@@ -215,7 +201,7 @@ const UsersVAController = {
           formularios_registrados DESC
       `);
 
-      // Formatear los resultados
+      // Formatear los resultados sin parsear JSON (ya viene como objeto)
       const formattedResults = rows.map(row => ({
         id: row.user_id,
         nombre: row.user_nombre,
@@ -224,12 +210,8 @@ const UsersVAController = {
         created_at: row.user_created_at,
         formularios_registrados: row.formularios_registrados,
         veces_registrado: row.veces_registrado,
-        formularios_como_registrador: row.formularios_como_registrador 
-          ? JSON.parse(row.formularios_como_registrador) 
-          : [],
-        formularios_como_usuario: row.formularios_como_usuario 
-          ? JSON.parse(row.formularios_como_usuario) 
-          : []
+        formularios_como_registrador: row.formularios_como_registrador || [],
+        formularios_como_usuario: row.formularios_como_usuario || []
       }));
 
       res.json(formattedResults);
@@ -242,57 +224,6 @@ const UsersVAController = {
       });
     }
   },
-
-  getReclutadorByToken: async (req, res) => {
-    let connection;
-    try {
-        const { token } = req.body;
-
-        if (!token) {
-            return res.status(400).json({ 
-                success: false,
-                message: 'El token es requerido' 
-            });
-        }
-
-        connection = await pool.getConnection();
-
-        // Buscar el usuario por el token_registrado
-        const [users] = await connection.query(
-            'SELECT id, nombre, cedula, registrado_por FROM usersVA WHERE token_registrado = ?',
-            [token]
-        );
-
-        if (users.length === 0) {
-            return res.status(404).json({ 
-                success: false,
-                message: 'No se encontró ningún reclutador con ese token' 
-            });
-        }
-
-        const user = users[0];
-
-        res.json({
-            success: true,
-            data: {
-                id: user.id,
-                nombre: user.nombre,
-                cedula: user.cedula,
-                registrado_por: user.registrado_por
-            }
-        });
-
-    } catch (error) {
-        console.error('Error al buscar reclutador por token:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Error interno del servidor',
-            error: error.message 
-        });
-    } finally {
-        if (connection) connection.release();
-    }
-},
 
   getUsers: async (req, res) => {
     try {
