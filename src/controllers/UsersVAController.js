@@ -142,22 +142,61 @@ const UsersVAController = {
     try {
       const [rows] = await pool.query(`
         SELECT 
-          f.*, 
-          COALESCE(r.cantidad, 0) AS personas_registradas
-        FROM formulario_voz_activa AS f
-        LEFT JOIN (
-          SELECT 
-            u.cedula AS cedula_registrador,
-            COUNT(f2.id) AS cantidad
-          FROM usersVA u
-          LEFT JOIN formulario_voz_activa f2 
-            ON f2.registrador_id = u.id
-          GROUP BY u.cedula
-        ) AS r
-          ON f.cedula COLLATE utf8mb4_unicode_ci = r.cedula_registrador COLLATE utf8mb4_unicode_ci
+          u.*,
+          f.*,
+          COALESCE((
+            SELECT COUNT(*) 
+            FROM formulario_voz_activa 
+            WHERE registrador_id = u.id
+          ), 0) AS personas_registradas
+        FROM usersVA u
+        LEFT JOIN formulario_voz_activa f 
+          ON f.usersVA_id = u.id
       `);
-  
-      res.json(rows);
+
+      // Agrupar los resultados por usuario (ya que un usuario puede tener múltiples formularios)
+      const groupedResults = rows.reduce((acc, row) => {
+        const existingUser = acc.find(user => user.id === row.id);
+        
+        if (existingUser) {
+          // Si el usuario ya existe en el acumulador, agregamos el formulario
+          if (row.usersVA_id) { // Verificar que existe un formulario relacionado
+            existingUser.formularios = existingUser.formularios || [];
+            existingUser.formularios.push({
+              id: row.f_id, // Asumiendo que el formulario tiene un campo 'id' (ajustar según tu estructura)
+              nombre_completo: row.nombre_completo,
+              cedula: row.f_cedula, // Prefijado con 'f_' para diferenciar
+              // Agrega aquí otros campos del formulario que necesites
+            });
+          }
+        } else {
+          // Si es un nuevo usuario, lo agregamos al acumulador
+          const newUser = {
+            id: row.id,
+            nombre: row.nombre,
+            cedula: row.cedula,
+            role: row.role,
+            status: row.status,
+            personas_registradas: row.personas_registradas,
+            formularios: []
+          };
+          
+          if (row.usersVA_id) { // Verificar que existe un formulario relacionado
+            newUser.formularios.push({
+              id: row.f_id,
+              nombre_completo: row.nombre_completo,
+              cedula: row.f_cedula,
+              // Agrega aquí otros campos del formulario que necesites
+            });
+          }
+          
+          acc.push(newUser);
+        }
+        
+        return acc;
+      }, []);
+
+      res.json(groupedResults);
     } catch (error) {
       console.error('Error obteniendo datos:', error);
       res.status(500).json({ message: 'Error interno del servidor.' });
@@ -235,8 +274,87 @@ const UsersVAController = {
   },
 
     
-  cambiarPassword:async (req, res) => {
-  }
+  cambiarPassword: async (req, res) => {
+    let connection;
+    try {
+        // 1. Obtener datos del request
+        const { usuarioId, passwordActual, nuevaPassword, confirmarPassword } = req.body;
+        
+        // 2. Validaciones básicas
+        if (!usuarioId || !passwordActual || !nuevaPassword || !confirmarPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Todos los campos son requeridos'
+            });
+        }
+
+        if (nuevaPassword !== confirmarPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Las nuevas contraseñas no coinciden'
+            });
+        }
+
+        if (nuevaPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                message: 'La contraseña debe tener al menos 8 caracteres'
+            });
+        }
+
+        // 3. Obtener conexión a la base de datos
+        connection = await pool.getConnection();
+        
+        // 4. Verificar contraseña actual
+        const [user] = await connection.query(
+            'SELECT password FROM usersVA WHERE id = ?', 
+            [usuarioId]
+        );
+
+        if (user.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const passwordValido = await bcrypt.compare(passwordActual, user[0].password);
+        
+        if (!passwordValido) {
+            return res.status(401).json({
+                success: false,
+                message: 'Contraseña actual incorrecta'
+            });
+        }
+
+        // 5. Hashear nueva contraseña
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(nuevaPassword, salt);
+
+        // 6. Actualizar en base de datos
+        await connection.query(
+            'UPDATE usersVA SET password = ? WHERE id = ?',
+            [passwordHash, usuarioId]
+        );
+
+        // 7. Opcional: Invalidar tokens JWT existentes si usas autenticación por tokens
+
+        res.json({
+            success: true,
+            message: 'Contraseña cambiada exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error al cambiar contraseña:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al cambiar contraseña',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    } finally {
+        if (connection) connection.release();
+    }
+}
 }
 
 
