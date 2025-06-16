@@ -153,10 +153,10 @@ const UsersVAController = {
         f.telefono,
         f.celular,
         f.registrador_id,
-        r.nombre AS nombre_registrador,
+        r.nombre AS nombre_registrador
     FROM usersVA u
     LEFT JOIN formulario_voz_activa f 
-        ON f.usersVA_id = u.id
+        ON CAST(f.usersVA_id AS UNSIGNED) = u.id
     LEFT JOIN usersVA r
         ON f.registrador_id = r.id
     GROUP BY 
