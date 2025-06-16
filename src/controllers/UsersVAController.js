@@ -225,7 +225,7 @@ saveFormData: async (req, res) => {
   getUsers: async (req, res) => {
     try {
       // Consulta los usuarios cuyo estatus sea 1
-      const [users] = await pool.query('SELECT * FROM usersVA WHERE estatus = ?', [1]);
+      const [users] = await pool.query('SELECT * FROM usersVA WHERE status = ?', [1]);
 
       res.status(200).json({
         success: true,
