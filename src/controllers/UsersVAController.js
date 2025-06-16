@@ -221,9 +221,27 @@ saveFormData: async (req, res) => {
         if (connection) connection.release();
     }
 },
-  
-  
 
+  getUsers: async (req, res) => {
+    try {
+      // Consulta los usuarios cuyo estatus sea 1
+      const [users] = await pool.query('SELECT * FROM usersVA WHERE estatus = ?', [1]);
+
+      res.status(200).json({
+        success: true,
+        data: users
+      });
+    } catch (error) {
+      console.error('Error al obtener usuarios:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  },
+
+    
   cambiarPassword:async (req, res) => {
   }
 }
