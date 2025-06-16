@@ -154,13 +154,14 @@ const UsersVAController = {
         f.celular,
         f.registrador_id,
         r.nombre AS nombre_registrador,
+        f.created_at AS formulario_created_at
     FROM usersVA u
     LEFT JOIN formulario_voz_activa f 
         ON f.usersVA_id = u.id
     LEFT JOIN usersVA r
         ON f.registrador_id = r.id
     GROUP BY 
-        u.id, u.nombre, u.cedula, u.role, u.created_at, 
+        u.id, f.nombre_completo, u.cedula, u.role, u.created_at, 
         f.id, f.direccion, f.telefono, f.celular, f.registrador_id, 
         r.nombre, f.created_at`);
 
