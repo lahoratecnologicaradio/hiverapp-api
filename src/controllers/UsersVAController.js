@@ -163,7 +163,7 @@ const UsersVAController = {
     GROUP BY 
         u.id, f.nombre_completo, u.cedula, u.role, u.created_at, 
         f.id, f.direccion, f.telefono, f.celular, f.registrador_id, 
-        r.nombre, f.created_at`);
+        r.nombre`);
 
       // Agrupar los resultados por usuario (ya que un usuario puede tener múltiples formularios)
       const groupedResults = rows.reduce((acc, row) => {
