@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 
 const UsersVAController = {
 
-saveFormData: async (req, res) => {
+  saveFormData: async (req, res) => {
     let connection;
     try {
       // Obtener conexión del pool para transacción
@@ -17,6 +17,7 @@ saveFormData: async (req, res) => {
   
       // Obtener datos del cuerpo de la solicitud
       const {
+        id,
         nombre_completo,
         telefono,
         direccion,
@@ -41,36 +42,32 @@ saveFormData: async (req, res) => {
         registrador_id
       } = req.body;
   
-      // 1. Primero guardar en la tabla usersVA
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(cedula, salt);
-
+      // 1. Actualizar el status en la tabla usersVA
       const userQuery = `
-        INSERT INTO usersVA (
-          nombre, cedula, password, role, created_at
-        ) VALUES (?, ?, ?, ?, ?)
+        UPDATE usersVA 
+        SET status = 1 
+        WHERE id = ?
       `;
       
-      const userParams = [
-        nombre_completo,
-        cedula, // Usamos la cédula como password
-        hashedPassword,
-        'user', // Rol fijo 'user'
-        new Date() // Fecha actual
-      ];
+      const userParams = [registrador_id]; // Usamos el registrador_id como ID del usuario a actualizar
   
       const [userResult] = await connection.query(userQuery, userParams);
   
+      // Verificar si se actualizó algún registro
+      if (userResult.affectedRows === 0) {
+        throw new Error('No se encontró el usuario para actualizar');
+      }
+  
       // 2. Luego guardar en formulario_voz_activa
       const formQuery = `
-      INSERT INTO formulario_voz_activa (
-        nombre_completo, telefono, direccion, cedula, email, provincia,
-        municipio, sector, colegio_electoral, profesion_ocupacion,
-        participacion_previas, expectativas, rol_liderazgo, participar_comites,
-        disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
-        otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id, ip_registro
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+        INSERT INTO formulario_voz_activa (
+          nombre_completo, telefono, direccion, cedula, email, provincia,
+          municipio, sector, colegio_electoral, profesion_ocupacion,
+          participacion_previas, expectativas, rol_liderazgo, participar_comites,
+          disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
+          otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id, ip_registro
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
   
       const formParams = [
         nombre_completo, telefono, direccion, cedula, email, provincia,
@@ -80,7 +77,7 @@ saveFormData: async (req, res) => {
         JSON.stringify(nivel_academico), 
         JSON.stringify(como_se_entero), 
         JSON.stringify(habilidades),
-        otro_nivel_academico, otro_como_se_entero, otra_habilidad,  new Date() , registrador_id, '192'
+        otro_nivel_academico, otro_como_se_entero, otra_habilidad, new Date(), registrador_id, '192'
       ];
   
       const [formResult] = await connection.query(formQuery, formParams);
@@ -90,9 +87,9 @@ saveFormData: async (req, res) => {
   
       res.status(201).json({
         success: true,
-        message: 'Datos guardados exitosamente en ambas tablas',
-        userId: userResult.insertId,
-        formId: formResult.insertId
+        message: 'Formulario guardado y usuario actualizado exitosamente',
+        formId: formResult.insertId,
+        updatedUserId: registrador_id
       });
   
     } catch (error) {
@@ -104,18 +101,14 @@ saveFormData: async (req, res) => {
       // Manejar errores específicos
       let errorMessage = 'Error al guardar los datos';
       if (error.code === 'ER_DUP_ENTRY') {
-        if (error.message.includes('usersVA.cedula')) {
-          errorMessage = 'La cédula ya está registrada como usuario';
-        } else {
-          errorMessage = 'La cédula ya tiene un formulario registrado';
-        }
+        errorMessage = 'La cédula ya tiene un formulario registrado';
         return res.status(400).json({ success: false, message: errorMessage });
       }
       
       res.status(500).json({
         success: false,
-        message: errorMessage,
-        error: error.message
+        message: error.message || errorMessage,
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     } finally {
       // Liberar la conexión
