@@ -149,14 +149,21 @@ const UsersVAController = {
         u.created_at,
         COUNT(f.id) AS veces_en_formulario,
         f.id AS formulario_id,
-        f.descripcion,
+        f.direccion, 
+        f.telefono,
+        f.celular,
+        f.registrador_id,
+        r.nombre AS nombre_registrador,
         f.created_at AS formulario_created_at
     FROM usersVA u
     LEFT JOIN formulario_voz_activa f 
         ON f.usersVA_id = u.id
-    GROUP BY u.id, u.nombre, u.cedula, u.role, u.created_at, f.id, f.descripcion, f.created_at
-
-      `);
+    LEFT JOIN usersVA r
+        ON f.registrador_id = r.id
+    GROUP BY 
+        u.id, u.nombre, u.cedula, u.role, u.created_at, 
+        f.id, f.direccion, f.telefono, f.celular, f.registrador_id, 
+        r.nombre, f.created_at`);
 
       // Agrupar los resultados por usuario (ya que un usuario puede tener múltiples formularios)
       const groupedResults = rows.reduce((acc, row) => {
