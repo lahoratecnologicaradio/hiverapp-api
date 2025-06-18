@@ -11,137 +11,168 @@ const UsersVAController = {
   saveFormData: async (req, res) => {
     let connection;
     try {
-      // Obtener conexión del pool para transacción
-      connection = await pool.getConnection();
-      await connection.beginTransaction();
-  
-      // Obtener datos del cuerpo de la solicitud
-      const {
-        nombre_completo,
-        apellidos,
-        telefono,
-        celular,
-        direccion,
-        cedula,
-        email,
-        provincia,
-        municipio,
-        sector,
-        colegio_electoral,
-        profesion_ocupacion,
-        participacion_previas,
-        participacion_cual,
-        expectativas,
-        rol_liderazgo,
-        participar_comites,
-        disponibilidad_viajar,
-        nivel_academico = [],
-        como_se_entero = [],
-        habilidades = [],
-        otro_nivel_academico,
-        otro_como_se_entero,
-        otra_habilidad,
-        registrado_por,
-        token_user_id,
-        reclutador_id
-      } = req.body;
+        // Obtener conexión del pool para transacción
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
 
-      // Combinar nombre y apellidos
-      const nombreCompleto = `${nombre_completo} ${apellidos}`;
-  
-      // 1. Actualizar el status en la tabla usersVA
-      const userQuery = `
-        UPDATE usersVA 
-        SET status = 1 
-        WHERE id = ?
-      `;
-      
-      const userParams = [reclutador_id || token_user_id]; // Usamos el reclutador_id o token_user_id como ID del usuario a actualizar
-  
-      const [userResult] = await connection.query(userQuery, userParams);
-  
-      // Verificar si se actualizó algún registro
-      if (userResult.affectedRows === 0) {
-        throw new Error('No se encontró el usuario para actualizar');
-      }
-  
-      // 2. Luego guardar en formulario_voz_activa
-      const formQuery = `
-        INSERT INTO formulario_voz_activa (
-          nombre_completo, telefono, celular, direccion, cedula, email, provincia,
-          municipio, sector, colegio_electoral, profesion_ocupacion,
-          participacion_previas, participacion_cual, expectativas, rol_liderazgo, 
-          participar_comites, disponibilidad_viajar, nivel_academico, como_se_entero, 
-          habilidades, otro_nivel_academico, otro_como_se_entero, otra_habilidad, 
-          fecha_registro, registrador_id, ip_registro, usersVA_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-  
-      const formParams = [
-        nombreCompleto, 
-        telefono, 
-        celular,
-        direccion, 
-        cedula, 
-        email, 
-        provincia,
-        municipio, 
-        sector, 
-        colegio_electoral, 
-        profesion_ocupacion,
-        participacion_previas, 
-        participacion_previas === 'Sí' ? participacion_cual : null,
-        expectativas, 
-        rol_liderazgo, 
-        participar_comites,
-        disponibilidad_viajar, 
-        nivel_academico.length > 0 ? JSON.stringify(nivel_academico) : null,
-        como_se_entero.length > 0 ? JSON.stringify(como_se_entero) : null,
-        habilidades.length > 0 ? JSON.stringify(habilidades) : null,
-        otro_nivel_academico,
-        otro_como_se_entero, 
-        otra_habilidad, 
-        new Date(), 
-        reclutador_id || token_user_id, 
-        req.ip || '192',
-        reclutador_id || token_user_id
-      ];
-  
-      const [formResult] = await connection.query(formQuery, formParams);
-  
-      // Confirmar la transacción si todo salió bien
-      await connection.commit();
-  
-      res.status(201).json({
-        success: true,
-        message: 'Formulario guardado y usuario actualizado exitosamente',
-        formId: formResult.insertId,
-        updatedUserId: reclutador_id || token_user_id
-      });
-  
+        // Obtener datos del cuerpo de la solicitud
+        const {
+            nombre_completo,
+            apellidos,
+            telefono,
+            celular,
+            direccion,
+            cedula,
+            email,
+            provincia,
+            municipio,
+            sector,
+            colegio_electoral,
+            profesion_ocupacion,
+            participacion_previas,
+            participacion_cual,
+            expectativas,
+            rol_liderazgo,
+            participar_comites,
+            disponibilidad_viajar,
+            nivel_academico = [],
+            como_se_entero = [],
+            habilidades = [],
+            otro_nivel_academico,
+            otro_como_se_entero,
+            otra_habilidad,
+            registrado_por,
+            token_user_id,
+            reclutador_id
+        } = req.body;
+
+        // Combinar nombre y apellidos
+        const nombreCompleto = `${nombre_completo} ${apellidos}`;
+
+        // ID del usuario que usaremos (prioridad a reclutador_id si existe)
+        const userId = reclutador_id || token_user_id;
+
+        // 1. Verificar si el usuario existe en usersVA
+        const checkUserQuery = `SELECT id FROM usersVA WHERE id = ?`;
+        const [userRows] = await connection.query(checkUserQuery, [userId]);
+
+        // Si el usuario no existe, lo insertamos
+        if (userRows.length === 0) {
+            const insertUserQuery = `
+                INSERT INTO usersVA (
+                    id, nombre, cedula, role, password, status, registrado_por
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+            
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(cedula, salt);
+            
+            await connection.query(insertUserQuery, [
+                userId,
+                nombre_completo, // Usamos solo el nombre sin apellidos para usersVA
+                cedula,
+                'user', // Rol por defecto
+                hashedPassword,
+                1, // Status activo
+                registrado_por || 'formulario' // Quién lo registró
+            ]);
+        }
+
+        // 2. Actualizar el status en la tabla usersVA
+        const userQuery = `
+            UPDATE usersVA 
+            SET status = 1 
+            WHERE id = ?
+        `;
+        
+        const [userResult] = await connection.query(userQuery, [userId]);
+
+        // Verificar si se actualizó algún registro
+        if (userResult.affectedRows === 0) {
+            throw new Error('No se pudo actualizar el usuario');
+        }
+
+        // 3. Guardar en formulario_voz_activa
+        const formQuery = `
+            INSERT INTO formulario_voz_activa (
+                nombre_completo, telefono, celular, direccion, cedula, email, provincia,
+                municipio, sector, colegio_electoral, profesion_ocupacion,
+                participacion_previas, participacion_cual, expectativas, rol_liderazgo, 
+                participar_comites, disponibilidad_viajar, nivel_academico, como_se_entero, 
+                habilidades, otro_nivel_academico, otro_como_se_entero, otra_habilidad, 
+                fecha_registro, registrador_id, ip_registro, usersVA_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const formParams = [
+            nombreCompleto, 
+            telefono, 
+            celular,
+            direccion, 
+            cedula, 
+            email, 
+            provincia,
+            municipio, 
+            sector, 
+            colegio_electoral, 
+            profesion_ocupacion,
+            participacion_previas, 
+            participacion_previas === 'Sí' ? participacion_cual : null,
+            expectativas, 
+            rol_liderazgo, 
+            participar_comites,
+            disponibilidad_viajar, 
+            nivel_academico.length > 0 ? JSON.stringify(nivel_academico) : null,
+            como_se_entero.length > 0 ? JSON.stringify(como_se_entero) : null,
+            habilidades.length > 0 ? JSON.stringify(habilidades) : null,
+            otro_nivel_academico,
+            otro_como_se_entero, 
+            otra_habilidad, 
+            new Date(), 
+            userId, 
+            req.ip || '192',
+            userId
+        ];
+
+        const [formResult] = await connection.query(formQuery, formParams);
+
+        // Confirmar la transacción si todo salió bien
+        await connection.commit();
+
+        res.status(201).json({
+            success: true,
+            message: 'Formulario guardado y usuario actualizado exitosamente',
+            formId: formResult.insertId,
+            updatedUserId: userId
+        });
+
     } catch (error) {
-      // Revertir la transacción en caso de error
-      if (connection) await connection.rollback();
-      
-      console.error('Error al guardar los datos:', error);
-      
-      // Manejar errores específicos
-      let errorMessage = 'Error al guardar los datos';
-      if (error.code === 'ER_DUP_ENTRY') {
-        errorMessage = 'La cédula ya tiene un formulario registrado';
-        return res.status(400).json({ success: false, message: errorMessage });
-      }
-      
-      res.status(500).json({
-        success: false,
-        message: error.message || errorMessage,
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
+        // Revertir la transacción en caso de error
+        if (connection) await connection.rollback();
+        
+        console.error('Error al guardar los datos:', error);
+        
+        // Manejar errores específicos
+        let errorMessage = 'Error al guardar los datos';
+        if (error.code === 'ER_DUP_ENTRY') {
+            if (error.message.includes('cedula')) {
+                errorMessage = 'La cédula ya tiene un formulario registrado';
+            } else if (error.message.includes('usersVA.cedula')) {
+                errorMessage = 'La cédula ya está registrada en otro usuario';
+            }
+            return res.status(400).json({ success: false, message: errorMessage });
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: error.message || errorMessage,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     } finally {
-      // Liberar la conexión
-      if (connection) connection.release();
+        // Liberar la conexión
+        if (connection) connection.release();
     }
-  },
+},
 
   getUserByCedula: async (req, res) => {
     try {
