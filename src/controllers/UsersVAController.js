@@ -43,54 +43,39 @@ const UsersVAController = {
             otra_habilidad,
             registrado_por,
             token_user_id,
-            reclutador_id
+            reclutador_id,
+            usersVA_id
         } = req.body;
 
         // Combinar nombre y apellidos
         const nombreCompleto = `${nombre_completo} ${apellidos}`;
 
         // ID del usuario que usaremos (prioridad a reclutador_id si existe)
-        const userId = reclutador_id || token_user_id;
+        const userId =  usersVA_id;
 
         // 1. Verificar si el usuario existe en usersVA
         const checkUserQuery = `SELECT id FROM usersVA WHERE id = ?`;
         const [userRows] = await connection.query(checkUserQuery, [userId]);
 
         // Si el usuario no existe, lo insertamos
-        if (userRows.length === 0) {
-            const insertUserQuery = `
-                INSERT INTO usersVA (
-                    id, nombre, cedula, role, password, status, registrado_por
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `;
-            
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(cedula, salt);
-            
-            await connection.query(insertUserQuery, [
-                userId,
-                nombre_completo, // Usamos solo el nombre sin apellidos para usersVA
-                cedula,
-                'user', // Rol por defecto
-                hashedPassword,
-                1, // Status activo
-                registrado_por || 'formulario' // Quién lo registró
-            ]);
+        if (userRows.length === 1) {
+           // 2. Actualizar el status en la tabla usersVA
+              const userQuery = `
+              UPDATE usersVA 
+              SET status = 1 
+              WHERE id = ?
+          `;
+          
+          const [userResult] = await connection.query(userQuery, [userId]);
+
+          // Verificar si se actualizó algún registro
+          if (userResult.affectedRows === 0) {
+              throw new Error('No se pudo actualizar el usuario');
+          }
+           
         }
 
-        // 2. Actualizar el status en la tabla usersVA
-        const userQuery = `
-            UPDATE usersVA 
-            SET status = 1 
-            WHERE id = ?
-        `;
-        
-        const [userResult] = await connection.query(userQuery, [userId]);
-
-        // Verificar si se actualizó algún registro
-        if (userResult.affectedRows === 0) {
-            throw new Error('No se pudo actualizar el usuario');
-        }
+       
 
         // 3. Guardar en formulario_voz_activa
         const formQuery = `
@@ -333,25 +318,49 @@ const UsersVAController = {
         if (connection) connection.release();
     }
 },
+    getUsers: async (req, res) => {
+      try {
+          // Obtener ambos parámetros de la query string
+          const { status, registrado_por } = req.query;
+          
+          let query = 'SELECT * FROM usersVA';
+          const conditions = [];
+          const params = [];
 
-  getUsers: async (req, res) => {
-    try {
-      // Consulta los usuarios cuyo estatus sea 1
-      const [users] = await pool.query('SELECT * FROM usersVA WHERE status = ?', [1]);
+          // Filtrar por status si está presente (0 o 1)
+          if (status && (status === '0' || status === '1')) {
+              conditions.push('status = ?');
+              params.push(parseInt(status));
+          }
 
-      res.status(200).json({
-        success: true,
-        data: users
-      });
-    } catch (error) {
-      console.error('Error al obtener usuarios:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  },
+          // Filtrar por registrado_por si está presente
+          if (registrado_por) {
+              conditions.push('registrado_por = ?');
+              params.push(registrado_por);
+          }
+
+          // Combinar condiciones si existen
+          if (conditions.length > 0) {
+              query += ' WHERE ' + conditions.join(' AND ');
+          }
+
+          const [users] = await pool.query(query, params);
+
+          res.status(200).json({
+              success: true,
+              data: users
+          });
+
+      } catch (error) {
+          console.error('Error al obtener usuarios:', error);
+          res.status(500).json({
+              success: false,
+              message: 'Error interno del servidor',
+              error: error.message
+          });
+      }
+    },
+
 
     
   cambiarPassword: async (req, res) => {
