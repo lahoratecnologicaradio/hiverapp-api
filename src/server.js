@@ -210,7 +210,7 @@ app.post('/api/login', async (req, res) => {
 
 
 app.post('/api/registerVA', async (req, res) => {
-  const { nombre, cedula, role, token_registrado, registrado_por } = req.body;
+  const { nombre, cedula, role, token_registrado, registrado_por, status } = req.body;
 
   try {
     const [existingUser] = await pool.query(
@@ -227,9 +227,12 @@ app.post('/api/registerVA', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(cedula, salt);
 
+    // Determinar el valor de status (si viene en el body lo usamos, sino 0)
+    const statusValue = status !== undefined ? status : 0;
+
     const [result] = await pool.query(
-      'INSERT INTO usersVA (nombre, cedula, password, role, token_registrado, registrado_por, status, created_at) VALUES (?, ?, ?, ?, ?, ?,?, NOW())',
-      [nombre, cedula, hashedPassword, role || 'user', token_registrado, registrado_por,0]
+      'INSERT INTO usersVA (nombre, cedula, password, role, token_registrado, registrado_por, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
+      [nombre, cedula, hashedPassword, role || 'user', token_registrado, registrado_por, statusValue]
     );
     
 
@@ -243,7 +246,7 @@ app.post('/api/registerVA', async (req, res) => {
         role: role || 'user',
         token_registrado,
         registrado_por,
-        registrado_por
+        status: statusValue
       }
     });
     
@@ -284,7 +287,8 @@ app.post('/api/loginVA', async (req, res) => {
       role: user.role, 
       id: user.id,
       token_registrado: user.token_registrado,
-      registrado_por:user.registrado_por
+      registrado_por:user.registrado_por,
+      status: user.status
     });
   } catch (error) {
     console.error('Error en el inicio de sesión:', error);

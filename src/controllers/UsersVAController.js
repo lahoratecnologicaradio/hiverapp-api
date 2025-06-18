@@ -17,9 +17,10 @@ const UsersVAController = {
   
       // Obtener datos del cuerpo de la solicitud
       const {
-        id,
         nombre_completo,
+        apellidos,
         telefono,
+        celular,
         direccion,
         cedula,
         email,
@@ -29,18 +30,24 @@ const UsersVAController = {
         colegio_electoral,
         profesion_ocupacion,
         participacion_previas,
+        participacion_cual,
         expectativas,
         rol_liderazgo,
         participar_comites,
         disponibilidad_viajar,
-        nivel_academico,
-        como_se_entero,
-        habilidades,
+        nivel_academico = [],
+        como_se_entero = [],
+        habilidades = [],
         otro_nivel_academico,
         otro_como_se_entero,
         otra_habilidad,
-        registrador_id
+        registrado_por,
+        token_user_id,
+        reclutador_id
       } = req.body;
+
+      // Combinar nombre y apellidos
+      const nombreCompleto = `${nombre_completo} ${apellidos}`;
   
       // 1. Actualizar el status en la tabla usersVA
       const userQuery = `
@@ -49,7 +56,7 @@ const UsersVAController = {
         WHERE id = ?
       `;
       
-      const userParams = [registrador_id]; // Usamos el registrador_id como ID del usuario a actualizar
+      const userParams = [reclutador_id || token_user_id]; // Usamos el reclutador_id o token_user_id como ID del usuario a actualizar
   
       const [userResult] = await connection.query(userQuery, userParams);
   
@@ -61,23 +68,43 @@ const UsersVAController = {
       // 2. Luego guardar en formulario_voz_activa
       const formQuery = `
         INSERT INTO formulario_voz_activa (
-          nombre_completo, telefono, direccion, cedula, email, provincia,
+          nombre_completo, telefono, celular, direccion, cedula, email, provincia,
           municipio, sector, colegio_electoral, profesion_ocupacion,
-          participacion_previas, expectativas, rol_liderazgo, participar_comites,
-          disponibilidad_viajar, nivel_academico, como_se_entero, habilidades,
-          otro_nivel_academico, otro_como_se_entero, otra_habilidad, fecha_registro, registrador_id, ip_registro
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          participacion_previas, participacion_cual, expectativas, rol_liderazgo, 
+          participar_comites, disponibilidad_viajar, nivel_academico, como_se_entero, 
+          habilidades, otro_nivel_academico, otro_como_se_entero, otra_habilidad, 
+          fecha_registro, registrador_id, ip_registro, usersVA_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
   
       const formParams = [
-        nombre_completo, telefono, direccion, cedula, email, provincia,
-        municipio, sector, colegio_electoral, profesion_ocupacion,
-        participacion_previas, expectativas, rol_liderazgo, participar_comites,
+        nombreCompleto, 
+        telefono, 
+        celular,
+        direccion, 
+        cedula, 
+        email, 
+        provincia,
+        municipio, 
+        sector, 
+        colegio_electoral, 
+        profesion_ocupacion,
+        participacion_previas, 
+        participacion_previas === 'Sí' ? participacion_cual : null,
+        expectativas, 
+        rol_liderazgo, 
+        participar_comites,
         disponibilidad_viajar, 
-        JSON.stringify(nivel_academico), 
-        JSON.stringify(como_se_entero), 
-        JSON.stringify(habilidades),
-        otro_nivel_academico, otro_como_se_entero, otra_habilidad, new Date(), registrador_id, '192'
+        nivel_academico.length > 0 ? JSON.stringify(nivel_academico) : null,
+        como_se_entero.length > 0 ? JSON.stringify(como_se_entero) : null,
+        habilidades.length > 0 ? JSON.stringify(habilidades) : null,
+        otro_nivel_academico,
+        otro_como_se_entero, 
+        otra_habilidad, 
+        new Date(), 
+        reclutador_id || token_user_id, 
+        req.ip || '192',
+        reclutador_id || token_user_id
       ];
   
       const [formResult] = await connection.query(formQuery, formParams);
@@ -89,7 +116,7 @@ const UsersVAController = {
         success: true,
         message: 'Formulario guardado y usuario actualizado exitosamente',
         formId: formResult.insertId,
-        updatedUserId: registrador_id
+        updatedUserId: reclutador_id || token_user_id
       });
   
     } catch (error) {
