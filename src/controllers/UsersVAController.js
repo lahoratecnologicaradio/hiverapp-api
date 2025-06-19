@@ -192,6 +192,7 @@ const UsersVAController = {
           (SELECT nombre FROM usersVA WHERE id = u.registrado_por) AS nombre_registrador,
           COUNT(DISTINCT f1.id) AS formularios_registrados,
           COUNT(DISTINCT f2.id) AS veces_registrado,
+          (SELECT COUNT(*) FROM usersVA WHERE registrado_por = u.id) AS personas_registradas,
           (
               SELECT IFNULL(JSON_ARRAYAGG(
                   JSON_OBJECT(
@@ -256,6 +257,7 @@ const UsersVAController = {
         registrado_por: row.registrado_por,
         nombre_registrador: row.nombre_registrador,
         formularios_registrados: row.formularios_registrados,
+        personas_registradas: row.personas_registradas,
         veces_registrado: row.veces_registrado,
         formularios_como_registrador: row.formularios_como_registrador || [],
         formularios_como_usuario: row.formularios_como_usuario || []
