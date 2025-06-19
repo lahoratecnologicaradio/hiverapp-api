@@ -252,6 +252,7 @@ const UsersVAController = {
         cedula: row.user_cedula,
         role: row.user_role,
         created_at: row.user_created_at,
+        status: row.status,
         formularios_registrados: row.formularios_registrados,
         veces_registrado: row.veces_registrado,
         formularios_como_registrador: row.formularios_como_registrador || [],
