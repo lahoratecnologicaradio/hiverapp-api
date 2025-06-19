@@ -190,6 +190,7 @@ const UsersVAController = {
           u.cedula AS user_cedula,
           u.role AS user_role,
           u.created_at AS user_created_at,
+          u.status,
           COUNT(DISTINCT f1.id) AS formularios_registrados,
           COUNT(DISTINCT f2.id) AS veces_registrado,
           (
