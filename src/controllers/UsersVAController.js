@@ -253,6 +253,8 @@ const UsersVAController = {
         role: row.user_role,
         created_at: row.user_created_at,
         status: row.status,
+        registrado_por: row.registrado_por,
+        nombre_registrador: row.nombre_registrador,
         formularios_registrados: row.formularios_registrados,
         veces_registrado: row.veces_registrado,
         formularios_como_registrador: row.formularios_como_registrador || [],
