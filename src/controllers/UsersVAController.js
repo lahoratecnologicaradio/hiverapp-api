@@ -50,9 +50,6 @@ const UsersVAController = {
         // Combinar nombre y apellidos
         const nombreCompleto = `${nombre_completo} ${apellidos}`;
 
-        // ID del usuario que usaremos (prioridad a reclutador_id si existe)
-        const userId =  usersVA_id;
-
         // 1. Verificar si el usuario existe en usersVA
         const checkUserQuery = `SELECT id FROM usersVA WHERE id = ?`;
         const [userRows] = await connection.query(checkUserQuery, [userId]);
@@ -114,9 +111,9 @@ const UsersVAController = {
             otro_como_se_entero, 
             otra_habilidad, 
             new Date(), 
-            userId, 
+            reclutador_id, 
             req.ip || '192',
-            userId
+            usersVA_id
         ];
 
         const [formResult] = await connection.query(formQuery, formParams);
@@ -184,64 +181,67 @@ const UsersVAController = {
   getForm: async (req, res) => {
     try {
       const [rows] = await pool.query(`
-        SELECT 
+          SELECT 
           u.id AS user_id,
           u.nombre AS user_nombre,
           u.cedula AS user_cedula,
           u.role AS user_role,
           u.created_at AS user_created_at,
           u.status,
+          u.registrado_por,
+          (SELECT nombre FROM usersVA WHERE id = u.registrado_por) AS nombre_registrador,
           COUNT(DISTINCT f1.id) AS formularios_registrados,
           COUNT(DISTINCT f2.id) AS veces_registrado,
           (
-            SELECT IFNULL(JSON_ARRAYAGG(
-              JSON_OBJECT(
-                'id', f.id,
-                'nombre_completo', f.nombre_completo,
-                'telefono', f.telefono,
-                'celular', f.celular,
-                'direccion', f.direccion,
-                'email', f.email,
-                'provincia', f.provincia,
-                'municipio', f.municipio,
-                'sector', f.sector,
-                'fecha_registro', f.fecha_registro,
-                'registrador_id', f.registrador_id,
-                'usersVA_id', f.usersVA_id
-              )
-            ), JSON_ARRAY()) 
-            FROM formulario_voz_activa f
-            WHERE f.registrador_id = u.id
+              SELECT IFNULL(JSON_ARRAYAGG(
+                  JSON_OBJECT(
+                      'id', f.id,
+                      'nombre_completo', f.nombre_completo,
+                      'telefono', f.telefono,
+                      'celular', f.celular,
+                      'direccion', f.direccion,
+                      'email', f.email,
+                      'provincia', f.provincia,
+                      'municipio', f.municipio,
+                      'sector', f.sector,
+                      'fecha_registro', f.fecha_registro,
+                      'registrador_id', f.registrador_id,
+                      'usersVA_id', f.usersVA_id
+                  )
+              ), JSON_ARRAY()) 
+              FROM formulario_voz_activa f
+              WHERE f.registrador_id = u.id
           ) AS formularios_como_registrador,
           (
-            SELECT IFNULL(JSON_ARRAYAGG(
-              JSON_OBJECT(
-                'id', f.id,
-                'nombre_completo', f.nombre_completo,
-                'telefono', f.telefono,
-                'celular', f.celular,
-                'direccion', f.direccion,
-                'email', f.email,
-                'provincia', f.provincia,
-                'municipio', f.municipio,
-                'sector', f.sector,
-                'fecha_registro', f.fecha_registro,
-                'registrador_id', f.registrador_id,
-                'usersVA_id', f.usersVA_id
-              )
-            ), JSON_ARRAY())
-            FROM formulario_voz_activa f
-            WHERE CAST(f.usersVA_id AS UNSIGNED) = u.id
+              SELECT IFNULL(JSON_ARRAYAGG(
+                  JSON_OBJECT(
+                      'id', f.id,
+                      'nombre_completo', f.nombre_completo,
+                      'telefono', f.telefono,
+                      'celular', f.celular,
+                      'direccion', f.direccion,
+                      'email', f.email,
+                      'provincia', f.provincia,
+                      'municipio', f.municipio,
+                      'sector', f.sector,
+                      'fecha_registro', f.fecha_registro,
+                      'registrador_id', f.registrador_id,
+                      'usersVA_id', f.usersVA_id,
+                      'registrador_nombre', (SELECT nombre FROM usersVA WHERE id = f.registrador_id)
+                  )
+              ), JSON_ARRAY())
+              FROM formulario_voz_activa f
+              WHERE CAST(f.usersVA_id AS UNSIGNED) = u.id
           ) AS formularios_como_usuario
-        FROM 
+      FROM 
           usersVA u
-        LEFT JOIN 
+      LEFT JOIN 
           formulario_voz_activa f1 ON f1.registrador_id = u.id
-        LEFT JOIN 
+      LEFT JOIN 
           formulario_voz_activa f2 ON CAST(f2.usersVA_id AS UNSIGNED) = u.id
-        GROUP BY 
-          u.id, u.nombre, u.cedula, u.role, u.created_at
-        ORDER BY 
+      GROUP BY 
+          u.id, u.nombre, u.cedula, u.role, u.created_at, u.status, u.registrado_por
+      ORDER BY 
           formularios_registrados DESC
       `);
 
