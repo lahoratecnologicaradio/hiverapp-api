@@ -45,17 +45,14 @@ const UsersVAController = {
             token_user_id,
             reclutador_id,
             usersVA_id,
-            usersVA_
         } = req.body;
-
-        userId = usersVA_id;
 
         // Combinar nombre y apellidos
         const nombreCompleto = `${nombre_completo} ${apellidos}`;
 
         // 1. Verificar si el usuario existe en usersVA
         const checkUserQuery = `SELECT id FROM usersVA WHERE id = ?`;
-        const [userRows] = await connection.query(checkUserQuery, [userId]);
+        const [userRows] = await connection.query(checkUserQuery, [usersVA_id]);
 
         // Si el usuario no existe, lo insertamos
         if (userRows.length === 1) {
@@ -66,7 +63,7 @@ const UsersVAController = {
               WHERE id = ?
           `;
           
-          const [userResult] = await connection.query(userQuery, [userId]);
+          const [userResult] = await connection.query(userQuery, [usersVA_id]);
 
           // Verificar si se actualizó algún registro
           if (userResult.affectedRows === 0) {
@@ -128,7 +125,7 @@ const UsersVAController = {
             success: true,
             message: 'Formulario guardado y usuario actualizado exitosamente',
             formId: formResult.insertId,
-            updatedUserId: userId
+            updatedUserId: usersVA_id
         });
 
     } catch (error) {
