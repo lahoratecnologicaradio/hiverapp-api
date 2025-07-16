@@ -47,6 +47,8 @@ const UsersVAController = {
             usersVA_id
         } = req.body;
 
+        userId = usersVA_id;
+
         // Combinar nombre y apellidos
         const nombreCompleto = `${nombre_completo} ${apellidos}`;
 
