@@ -45,7 +45,7 @@ const UsersVAController = {
             token_user_id,
             reclutador_id,
             usersVA_id,
-            usersVA_
+            usersVA_1
         } = req.body;
 
         userId = usersVA_id;
