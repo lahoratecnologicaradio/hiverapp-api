@@ -43,9 +43,7 @@ const UsersVAController = {
                 otra_habilidad,
                 registrado_por,
                 token_user_id,
-                reclutador_id,
                 usersVA_id,
-                usersVA_id2,
             } = req.body;
     
             // Combinar nombre y apellidos
@@ -77,11 +75,13 @@ const UsersVAController = {
                 `;
                 
                 // Usar la cédula como contraseña inicial
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(cedula, salt);
                 const [userResult] = await connection.query(insertUserQuery, [
                     nombreCompleto,
                     cedula,
-                    cedula, // password
-                    reclutador_id || registrado_por
+                    hashedPassword, // password
+                    registrado_por
                 ]);
                 
                 userId = userResult.insertId;
@@ -105,8 +105,8 @@ const UsersVAController = {
                     participacion_previas, participacion_cual, expectativas, rol_liderazgo, 
                     participar_comites, disponibilidad_viajar, nivel_academico, como_se_entero, 
                     habilidades, otro_nivel_academico, otro_como_se_entero, otra_habilidad, 
-                    fecha_registro, registrador_id, ip_registro, usersVA_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    fecha_registro, ip_registro, usersVA_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
     
             const formParams = [
@@ -134,7 +134,6 @@ const UsersVAController = {
                 otro_como_se_entero, 
                 otra_habilidad, 
                 new Date(), 
-                reclutador_id, 
                 req.ip || '192',
                 userId // Usar el ID del usuario (nuevo o existente)
             ];
