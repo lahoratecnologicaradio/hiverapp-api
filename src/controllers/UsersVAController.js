@@ -45,6 +45,7 @@ const UsersVAController = {
                 token_user_id,
                 reclutador_id,
                 usersVA_id,
+                usersVA_id2,
             } = req.body;
     
             // Combinar nombre y apellidos
@@ -178,7 +179,7 @@ const UsersVAController = {
             if (connection) connection.release();
         }
     },
-    
+
   getUserByCedula: async (req, res) => {
     try {
       const { cedula } = req.body;
